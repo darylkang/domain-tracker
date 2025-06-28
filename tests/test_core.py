@@ -84,9 +84,9 @@ class TestMyPackage:
         assert result.success is False
         assert "error" in result.metadata
 
-    def test_get_stats(self, package: MyPackage) -> None:
-        """Test get_stats method."""
-        stats = package.get_stats()
-        assert "version" in stats
-        assert "settings" in stats
-        assert stats["version"] == __version__
+    def test_get_package_info(self, package: MyPackage) -> None:
+        """Test get_package_info method."""
+        info = package.get_package_info()
+        assert "version" in info
+        assert "settings" in info
+        assert info["version"] == __version__

@@ -17,7 +17,7 @@ from domain_tracker.settings import Settings
 from domain_tracker.slack_notifier import send_slack_alert
 from domain_tracker.whois_client import check_domain_availability
 
-# Constants
+# Message templates
 AVAILABLE_DOMAIN_MESSAGE = "✅ Domain available: {domain}"
 UNAVAILABLE_DOMAIN_MESSAGE = "❌ Domain NOT available: {domain}"
 
@@ -37,7 +37,25 @@ def version_callback(value: bool) -> None:
         raise typer.Exit()
 
 
-def print_summary(total_domains: int, available_domains: list[str]) -> None:
+def _send_slack_alert_safely(message: str, settings: Settings) -> None:
+    """Send Slack alert with error handling."""
+    try:
+        send_slack_alert(message, settings)
+    except Exception as e:
+        print(f"⚠️  Error sending Slack alert: {e}")
+
+
+def _load_settings() -> Settings:
+    """Load settings with error handling."""
+    try:
+        return Settings()  # type: ignore[call-arg]
+    except Exception as e:
+        print(f"❌ Error loading configuration: {e}")
+        print("   Make sure WHOIS_API_KEY and SLACK_WEBHOOK_URL are set.")
+        raise typer.Exit(code=1) from e
+
+
+def _print_domain_summary(total_domains: int, available_domains: list[str]) -> None:
     """Print a summary of domain checking results."""
     available_count = len(available_domains)
 
@@ -49,35 +67,6 @@ def print_summary(total_domains: int, available_domains: list[str]) -> None:
         print("  No domains available at this time.")
     else:
         print(f"  Available domains: {', '.join(available_domains)}")
-
-
-def check_single_domain(domain: str) -> None:
-    """Check availability of a single domain and send Slack alert."""
-    try:
-        # Load settings
-        settings = Settings()  # type: ignore[call-arg]
-
-        print(f"🔍 Checking {domain}...")
-        is_available = check_domain_availability(domain, settings)
-
-        if is_available:
-            message = AVAILABLE_DOMAIN_MESSAGE.format(domain=domain)
-            print(message)
-            try:
-                send_slack_alert(message, settings)
-            except Exception as e:
-                print(f"⚠️  Error sending Slack alert: {e}")
-        else:
-            message = UNAVAILABLE_DOMAIN_MESSAGE.format(domain=domain)
-            print(message)
-            try:
-                send_slack_alert(message, settings)
-            except Exception as e:
-                print(f"⚠️  Error sending Slack alert: {e}")
-
-    except Exception as e:
-        print(f"❌ Error checking domain {domain}: {e}")
-        raise typer.Exit(code=1)
 
 
 @app.callback()
@@ -96,7 +85,24 @@ def check_single_domain_command(
     domain: Annotated[str, typer.Argument(help="Domain to check (e.g., example.com)")],
 ) -> None:
     """Check availability of a single domain and send Slack alert."""
-    check_single_domain(domain)
+    try:
+        settings = _load_settings()
+
+        print(f"🔍 Checking {domain}...")
+        is_available = check_domain_availability(domain, settings)
+
+        if is_available:
+            message = AVAILABLE_DOMAIN_MESSAGE.format(domain=domain)
+            print(message)
+            _send_slack_alert_safely(message, settings)
+        else:
+            message = UNAVAILABLE_DOMAIN_MESSAGE.format(domain=domain)
+            print(message)
+            _send_slack_alert_safely(message, settings)
+
+    except Exception as e:
+        print(f"❌ Error checking domain {domain}: {e}")
+        raise typer.Exit(code=1) from e
 
 
 @app.command("check-domains")
@@ -114,15 +120,13 @@ def check_domains(
     ] = False,
 ) -> None:
     """Check domain availability and send Slack alerts for available domains."""
-
     # Configure logging if debug mode is enabled
     if debug:
         logging.basicConfig(level=logging.DEBUG)
 
-    try:
-        # Load settings
-        settings = Settings()  # type: ignore[call-arg]
+    settings = _load_settings()
 
+    try:
         # Load domains from file
         print("🔍 Checking domain availability...")
         domains = load_domains()
@@ -132,7 +136,6 @@ def check_domains(
             return
 
         available_domains = []
-        unavailable_domains = []
 
         # Check each domain
         for domain in domains:
@@ -143,43 +146,30 @@ def check_domains(
                 if is_available:
                     print("✅ Available")
                     available_domains.append(domain)
-
-                    # Send Slack alert for available domain
-                    try:
-                        send_slack_alert(
-                            AVAILABLE_DOMAIN_MESSAGE.format(domain=domain), settings
-                        )
-                    except Exception as e:
-                        print(f"    ⚠️  Error sending Slack alert: {e}")
-
+                    _send_slack_alert_safely(
+                        AVAILABLE_DOMAIN_MESSAGE.format(domain=domain), settings
+                    )
                 else:
                     print("❌ Unavailable")
-                    unavailable_domains.append(domain)
-
-                    # Send Slack alert for unavailable domain if notify_all is enabled
                     if notify_all:
-                        try:
-                            send_slack_alert(
-                                UNAVAILABLE_DOMAIN_MESSAGE.format(domain=domain),
-                                settings,
-                            )
-                        except Exception as e:
-                            print(f"    ⚠️  Error sending Slack alert: {e}")
+                        _send_slack_alert_safely(
+                            UNAVAILABLE_DOMAIN_MESSAGE.format(domain=domain),
+                            settings,
+                        )
 
             except Exception as e:
                 print(f"❌ Error checking {domain}: {e}")
-                unavailable_domains.append(domain)
 
         # Print summary
-        print_summary(len(domains), available_domains)
+        _print_domain_summary(len(domains), available_domains)
 
     except FileNotFoundError as e:
         print(f"❌ Error loading domains: {e}")
         print("   Make sure domains.txt exists in the current directory.")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
     except Exception as e:
         print(f"❌ Unexpected error: {e}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
 
 
 if __name__ == "__main__":
