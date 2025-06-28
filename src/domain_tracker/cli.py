@@ -18,7 +18,7 @@ from domain_tracker.whois_client import check_domain_availability
 
 # Constants
 AVAILABLE_DOMAIN_MESSAGE = "✅ Domain available: {domain}"
-UNAVAILABLE_DOMAIN_MESSAGE = "❌ Domain unavailable: {domain}"
+UNAVAILABLE_DOMAIN_MESSAGE = "❌ Domain NOT available: {domain}"
 
 # Create the Typer app
 app = typer.Typer(
@@ -50,6 +50,32 @@ def print_summary(total_domains: int, available_domains: list[str]) -> None:
         print(f"  Available domains: {', '.join(available_domains)}")
 
 
+def check_single_domain(domain: str) -> None:
+    """Check availability of a single domain and send Slack alert."""
+    try:
+        print(f"🔍 Checking {domain}...")
+        is_available = check_domain_availability(domain)
+        
+        if is_available:
+            message = AVAILABLE_DOMAIN_MESSAGE.format(domain=domain)
+            print(message)
+            try:
+                send_slack_alert(message)
+            except Exception as e:
+                print(f"⚠️  Error sending Slack alert: {e}")
+        else:
+            message = UNAVAILABLE_DOMAIN_MESSAGE.format(domain=domain)
+            print(message)
+            try:
+                send_slack_alert(message)
+            except Exception as e:
+                print(f"⚠️  Error sending Slack alert: {e}")
+                
+    except Exception as e:
+        print(f"❌ Error checking domain {domain}: {e}")
+        raise typer.Exit(code=1)
+
+
 @app.callback()
 def main(
     version: Annotated[
@@ -58,6 +84,15 @@ def main(
     ] = False,
 ) -> None:
     """Domain Drop Tracker - Monitor domain availability and send Slack alerts."""
+    pass
+
+
+@app.command("check")
+def check_single_domain_command(
+    domain: Annotated[str, typer.Argument(help="Domain to check (e.g., example.com)")],
+) -> None:
+    """Check availability of a single domain and send Slack alert."""
+    check_single_domain(domain)
 
 
 @app.command("check-domains")

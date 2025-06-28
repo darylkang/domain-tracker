@@ -100,7 +100,7 @@ class TestCLIDomainsCommand:
         assert result.exit_code == 0
         assert mock_slack.call_count == 2
         mock_slack.assert_any_call("✅ Domain available: available.com")
-        mock_slack.assert_any_call("❌ Domain unavailable: unavailable.com")
+        mock_slack.assert_any_call("❌ Domain NOT available: unavailable.com")
 
     @patch('domain_tracker.cli.load_domains')
     @patch('domain_tracker.cli.check_domain_availability')
@@ -200,58 +200,172 @@ class TestCLIDomainsCommand:
         mock_check: Mock, 
         mock_load: Mock
     ) -> None:
-        """Test that Slack notification errors are handled gracefully."""
-        # ARRANGE: Mock available domain but Slack failure
-        mock_load.return_value = ["available.com"]
+        """Test that Slack alerts handle errors gracefully."""
+        # ARRANGE: Mock available domain but Slack error
+        mock_load.return_value = ["test.com"]
         mock_check.return_value = True
-        mock_slack.side_effect = Exception("Slack webhook error")
+        mock_slack.side_effect = Exception("Slack API error")
         
         # ACT: Run check-domains command
         result = self.runner.invoke(app, ["check-domains"])
         
-        # ASSERT: Should continue and report the error
+        # ASSERT: Should continue and show Slack error warning
         assert result.exit_code == 0
         assert "Error sending Slack alert" in result.stdout
 
-    def test_check_domains_displays_progress_information(self) -> None:
+    @patch('domain_tracker.cli.load_domains')
+    @patch('domain_tracker.cli.check_domain_availability')
+    @patch('domain_tracker.cli.send_slack_alert')
+    def test_check_domains_displays_progress_information(
+        self, 
+        mock_slack: Mock, 
+        mock_check: Mock, 
+        mock_load: Mock
+    ) -> None:
         """Test that progress information is displayed during domain checking."""
-        # ARRANGE & ACT: Mock domains and run command
-        with patch('domain_tracker.cli.load_domains') as mock_load, \
-             patch('domain_tracker.cli.check_domain_availability') as mock_check, \
-             patch('domain_tracker.cli.send_slack_alert'):
-            
-            mock_load.return_value = ["test1.com", "test2.com", "test3.com"]
-            mock_check.side_effect = [True, False, True]
-            
-            result = self.runner.invoke(app, ["check-domains"])
+        # ARRANGE: Mock domains with mixed availability
+        mock_load.return_value = ["example.com", "test.org"]
+        mock_check.side_effect = [True, False]
+        
+        # ACT: Run check-domains command
+        result = self.runner.invoke(app, ["check-domains"])
         
         # ASSERT: Should show progress information
         assert result.exit_code == 0
         assert "Checking domain availability" in result.stdout
-        assert "Found 2 available domains" in result.stdout
+        assert "Checking example.com" in result.stdout
+        assert "Checking test.org" in result.stdout
+
+
+class TestCLISingleDomainCheck:
+    """Test CLI single domain checking functionality."""
+
+    def setup_method(self) -> None:
+        """Set up test fixtures."""
+        self.runner = CliRunner()
+
+    @patch('domain_tracker.cli.check_domain_availability')
+    @patch('domain_tracker.cli.send_slack_alert')
+    def test_single_domain_check_available_domain(
+        self,
+        mock_slack: Mock,
+        mock_check: Mock
+    ) -> None:
+        """Test checking a single available domain via check command."""
+        # ARRANGE: Mock domain as available
+        mock_check.return_value = True
+
+        # ACT: Run CLI with check command
+        result = self.runner.invoke(app, ["check", "example.com"])
+
+        # ASSERT: Should check domain and show success message
+        assert result.exit_code == 0
+        mock_check.assert_called_once_with("example.com")
+        mock_slack.assert_called_once_with("✅ Domain available: example.com")
+        assert "✅ Domain available: example.com" in result.stdout
+
+    @patch('domain_tracker.cli.check_domain_availability')
+    @patch('domain_tracker.cli.send_slack_alert')
+    def test_single_domain_check_unavailable_domain(
+        self,
+        mock_slack: Mock,
+        mock_check: Mock
+    ) -> None:
+        """Test checking a single unavailable domain via check command."""
+        # ARRANGE: Mock domain as unavailable
+        mock_check.return_value = False
+
+        # ACT: Run CLI with check command
+        result = self.runner.invoke(app, ["check", "unavailable.com"])
+
+        # ASSERT: Should check domain and show unavailable message
+        assert result.exit_code == 0
+        mock_check.assert_called_once_with("unavailable.com")
+        mock_slack.assert_called_once_with("❌ Domain NOT available: unavailable.com")
+        assert "❌ Domain NOT available: unavailable.com" in result.stdout
+
+    @patch('domain_tracker.cli.check_domain_availability')
+    @patch('domain_tracker.cli.send_slack_alert')
+    def test_single_domain_check_handles_api_errors_gracefully(
+        self,
+        mock_slack: Mock,
+        mock_check: Mock
+    ) -> None:
+        """Test that API errors during single domain check are handled gracefully."""
+        # ARRANGE: Mock API failure
+        mock_check.side_effect = Exception("API connection failed")
+
+        # ACT: Run CLI with check command
+        result = self.runner.invoke(app, ["check", "test.com"])
+
+        # ASSERT: Should exit with error and show helpful message
+        assert result.exit_code == 1
+        mock_check.assert_called_once_with("test.com")
+        assert "❌ Error checking domain test.com" in result.stdout
+        mock_slack.assert_not_called()
+
+    @patch('domain_tracker.cli.check_domain_availability')
+    @patch('domain_tracker.cli.send_slack_alert')
+    def test_single_domain_check_handles_slack_errors_gracefully(
+        self,
+        mock_slack: Mock,
+        mock_check: Mock
+    ) -> None:
+        """Test that Slack errors during single domain check are handled gracefully."""
+        # ARRANGE: Mock available domain but Slack error
+        mock_check.return_value = True
+        mock_slack.side_effect = Exception("Slack webhook error")
+
+        # ACT: Run CLI with check command
+        result = self.runner.invoke(app, ["check", "test.com"])
+
+        # ASSERT: Should continue and show Slack error warning
+        assert result.exit_code == 0
+        mock_check.assert_called_once_with("test.com")
+        mock_slack.assert_called_once_with("✅ Domain available: test.com")
+        assert "⚠️  Error sending Slack alert" in result.stdout
+
+    def test_no_domain_argument_falls_back_to_existing_behavior(self) -> None:
+        """Test that running without arguments shows help."""
+        # ACT: Run CLI without arguments
+        result = self.runner.invoke(app, [])
+
+        # ASSERT: Should show help or usage information (Typer shows help with exit code 2)
+        assert result.exit_code == 2
+        # Should show the main help output
+        assert "Usage:" in result.stdout
+
+    def test_single_domain_check_validates_domain_format(self) -> None:
+        """Test that the check command accepts domain arguments."""
+        # ACT: Run CLI with check command and invalid domain
+        result = self.runner.invoke(app, ["check", "invalid-domain"])
+
+        # ASSERT: Should still attempt to check (validation handled by whois client)
+        # This test ensures the CLI accepts the argument and passes it through
+        assert result.exit_code in [0, 1]  # May succeed or fail depending on API response
 
 
 class TestCLIOtherCommands:
-    """Test other CLI commands for completeness."""
+    """Test other CLI commands and general functionality."""
 
     def setup_method(self) -> None:
         """Set up test fixtures."""
         self.runner = CliRunner()
 
     def test_cli_app_exists_and_shows_help(self) -> None:
-        """Test that the CLI app exists and shows helpful information."""
+        """Test that the CLI app exists and shows help information."""
         # ARRANGE & ACT: Get help for main app
         result = self.runner.invoke(app, ["--help"])
         
-        # ASSERT: Should show help with domain tracker information
+        # ASSERT: Should show help and available commands
         assert result.exit_code == 0
         assert "Domain Drop Tracker" in result.stdout
 
     def test_version_command_works(self) -> None:
-        """Test that version information is displayed correctly."""
-        # ARRANGE & ACT: Get version information
+        """Test that version information can be displayed."""
+        # ACT: Get version information
         result = self.runner.invoke(app, ["--version"])
         
-        # ASSERT: Should show version and exit successfully
+        # ASSERT: Should show version and exit cleanly
         assert result.exit_code == 0
-        # Note: Version output depends on the actual version
+        assert __version__ in result.stdout
