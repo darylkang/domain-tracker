@@ -8,8 +8,8 @@ from __future__ import annotations
 
 from typer.testing import CliRunner
 
-from my_package import __version__
-from my_package.cli import app
+from domain_tracker import __version__
+from domain_tracker.cli import app
 
 
 class TestCLI:

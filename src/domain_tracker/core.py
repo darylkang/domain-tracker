@@ -12,7 +12,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from my_package.settings import Settings
+from domain_tracker.settings import Settings
 
 # Configure basic logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
@@ -122,7 +122,7 @@ class MyPackage:
 
     def get_stats(self) -> dict[str, Any]:
         """Get package statistics and information."""
-        from my_package import __version__
+        from domain_tracker import __version__
 
         return {
             "version": __version__,

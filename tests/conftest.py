@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from my_package.settings import Settings
+from domain_tracker.settings import Settings
 
 
 @pytest.fixture

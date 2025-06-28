@@ -39,13 +39,13 @@ Issues = "https://github.com/darylkang/vibe-coding-template/issues"
 Source = "https://github.com/darylkang/vibe-coding-template"
 
 [project.scripts]
-vibe = "my_package.cli:app"
+vibe = "domain_tracker.cli:app"
 
 [tool.hatch.version]
-path = "src/my_package/__init__.py"
+path = "src/domain_tracker/__init__.py"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/my_package"]
+packages = ["src/domain_tracker"]
 
 [tool.hatch.envs.default]
 dependencies = [
@@ -60,11 +60,11 @@ dependencies = [
 test = "pytest {args:tests}"
 lint = "ruff check {args:.}"
 format = "ruff format {args:.}"
-type-check = "mypy {args:src/my_package tests}"
+type-check = "mypy {args:src/domain_tracker tests}"
 
 [tool.pytest.ini_options]
 minversion = "7.0"
-addopts = ["-ra", "--strict-markers", "--cov=my_package", "--cov-fail-under=50"]
+addopts = ["-ra", "--strict-markers", "--cov=domain_tracker", "--cov-fail-under=50"]
 testpaths = ["tests"]
 
 [tool.mypy]

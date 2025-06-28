@@ -2,7 +2,7 @@
 
 __version__ = "0.1.0"
 
-from my_package.core import MyPackage
-from my_package.settings import Settings
+from domain_tracker.core import MyPackage
+from domain_tracker.settings import Settings
 
 __all__ = ["MyPackage", "Settings", "__version__"]

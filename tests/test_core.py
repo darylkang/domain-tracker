@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import pytest
 
-from my_package import __version__
-from my_package.core import MyPackage, ProcessingRequest, ProcessingResult
-from my_package.settings import Settings
+from domain_tracker import __version__
+from domain_tracker.core import MyPackage, ProcessingRequest, ProcessingResult
+from domain_tracker.settings import Settings
 
 
 class TestProcessingRequest:
