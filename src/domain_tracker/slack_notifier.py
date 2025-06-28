@@ -25,17 +25,17 @@ MAX_MESSAGE_PREVIEW_LENGTH = 50
 def send_slack_alert(message: str) -> None:
     """
     Send a Slack alert message using webhook URL from settings.
-    
+
     Args:
         message: The alert message to send to Slack.
-        
+
     Raises:
         Does not raise exceptions - logs errors instead for graceful handling.
     """
     try:
         # Load settings
         settings = Settings()
-        
+
         # Prepare request data
         webhook_url = settings.slack_webhook_url
         payload = {"text": message}
@@ -43,7 +43,7 @@ def send_slack_alert(message: str) -> None:
             "Content-Type": "application/json",
             "User-Agent": USER_AGENT
         }
-        
+
         # Send request to Slack
         response = requests.post(
             webhook_url,
@@ -51,21 +51,21 @@ def send_slack_alert(message: str) -> None:
             headers=headers,
             timeout=DEFAULT_TIMEOUT_SECONDS
         )
-        
+
         # Check for HTTP errors
         response.raise_for_status()
-        
+
         # Verify Slack's response
         if response.text.strip() != "ok":
             logging.warning(f"Slack returned unexpected response: {response.text}")
-        
+
         # Log successful send
         logging.debug(f"Successfully sent Slack alert: {message[:MAX_MESSAGE_PREVIEW_LENGTH]}...")
-        
+
     except (ConnectionError, Timeout, RequestException) as e:
         # Log network errors gracefully
         logging.error(f"Failed to send Slack alert: {type(e).__name__}: {e}")
-        
+
     except Exception as e:
         # Log any other unexpected errors
-        logging.error(f"Failed to send Slack alert: Unexpected error: {e}") 
+        logging.error(f"Failed to send Slack alert: Unexpected error: {e}")

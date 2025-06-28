@@ -33,7 +33,7 @@ class Settings(BaseSettings):
         default=False,
         description="Debug mode for development and testing compatibility"
     )
-    
+
     default_transform: str = Field(
         default="uppercase",
         description="Default transformation for legacy compatibility"
@@ -44,17 +44,17 @@ class Settings(BaseSettings):
         description="API key for WhoisXML API service",
         min_length=1
     )
-    
+
     slack_webhook_url: HttpUrl = Field(
-        ..., 
+        ...,
         description="Slack webhook URL for domain availability notifications"
     )
 
     # Domain monitoring settings
     check_interval_hours: int = Field(
-        default=1, 
-        ge=1, 
-        le=24, 
+        default=1,
+        ge=1,
+        le=24,
         description="Hours between domain availability checks"
     )
 

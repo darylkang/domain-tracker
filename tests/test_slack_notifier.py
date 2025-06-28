@@ -1,7 +1,7 @@
 """
 Tests for Slack notification functionality.
 
-Following TDD approach - these tests define the expected behavior for 
+Following TDD approach - these tests define the expected behavior for
 sending Slack alerts when domains become available.
 """
 
@@ -27,11 +27,11 @@ class TestSlackNotifier:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.text = "ok"
-        
+
         with patch('requests.post', return_value=mock_response) as mock_post:
             # ACT: Send a slack alert
             send_slack_alert("Test domain available: example.com")
-            
+
             # ASSERT: Should make POST request to Slack
             mock_post.assert_called_once()
 
@@ -41,18 +41,18 @@ class TestSlackNotifier:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.text = "ok"
-        
+
         with patch('requests.post', return_value=mock_response) as mock_post, \
              patch('domain_tracker.slack_notifier.Settings') as mock_settings_class:
-            
+
             # Configure mock settings
             mock_settings = Mock()
             mock_settings.slack_webhook_url = "https://hooks.slack.com/services/test/webhook/url"
             mock_settings_class.return_value = mock_settings
-            
+
             # ACT: Send slack alert
             send_slack_alert("Test message")
-            
+
             # ASSERT: Should use webhook URL from settings
             mock_post.assert_called_once()
             call_args = mock_post.call_args
@@ -64,12 +64,12 @@ class TestSlackNotifier:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.text = "ok"
-        
+
         with patch('requests.post', return_value=mock_response) as mock_post:
             # ACT: Send slack alert with specific message
             test_message = "🎉 Domain now available: awesome-domain.com"
             send_slack_alert(test_message)
-            
+
             # ASSERT: Should send correct JSON payload
             mock_post.assert_called_once()
             call_args = mock_post.call_args
@@ -81,10 +81,10 @@ class TestSlackNotifier:
         # ARRANGE: Mock timeout exception
         with patch('requests.post', side_effect=Timeout("Request timed out")), \
              patch('domain_tracker.slack_notifier.logging') as mock_logging:
-            
+
             # ACT: Send slack alert with timeout
             send_slack_alert("Test timeout message")
-            
+
             # ASSERT: Should log error instead of crashing
             mock_logging.error.assert_called_once()
             error_message = mock_logging.error.call_args[0][0]
@@ -95,10 +95,10 @@ class TestSlackNotifier:
         # ARRANGE: Mock connection error
         with patch('requests.post', side_effect=ConnectionError("Unable to connect")), \
              patch('domain_tracker.slack_notifier.logging') as mock_logging:
-            
+
             # ACT: Send slack alert with connection error
             send_slack_alert("Test connection error message")
-            
+
             # ASSERT: Should log error instead of crashing
             mock_logging.error.assert_called_once()
             error_message = mock_logging.error.call_args[0][0]
@@ -111,13 +111,13 @@ class TestSlackNotifier:
         mock_response.status_code = 400
         mock_response.text = "invalid_payload"
         mock_response.raise_for_status.side_effect = requests.HTTPError("400 Bad Request")
-        
+
         with patch('requests.post', return_value=mock_response), \
              patch('domain_tracker.slack_notifier.logging') as mock_logging:
-            
+
             # ACT: Send slack alert with HTTP error
             send_slack_alert("Test HTTP error message")
-            
+
             # ASSERT: Should log error instead of crashing
             mock_logging.error.assert_called_once()
             error_message = mock_logging.error.call_args[0][0]
@@ -129,11 +129,11 @@ class TestSlackNotifier:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.text = "ok"
-        
+
         with patch('requests.post', return_value=mock_response) as mock_post:
             # ACT: Send slack alert
             send_slack_alert("Test timeout message")
-            
+
             # ASSERT: Should use timeout in request
             mock_post.assert_called_once()
             call_args = mock_post.call_args
@@ -146,11 +146,11 @@ class TestSlackNotifier:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.text = "ok"
-        
+
         with patch('requests.post', return_value=mock_response) as mock_post:
             # ACT: Send empty message
             send_slack_alert("")
-            
+
             # ASSERT: Should still send request (Slack can handle empty messages)
             mock_post.assert_called_once()
             call_args = mock_post.call_args
@@ -163,11 +163,11 @@ class TestSlackNotifier:
         mock_response.status_code = 200
         mock_response.text = "ok"
         long_message = "A" * 4000  # Very long message
-        
+
         with patch('requests.post', return_value=mock_response) as mock_post:
             # ACT: Send very long message
             send_slack_alert(long_message)
-            
+
             # ASSERT: Should send request without modification
             mock_post.assert_called_once()
             call_args = mock_post.call_args
@@ -179,13 +179,13 @@ class TestSlackNotifier:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.text = "ok"
-        
+
         with patch('requests.post', return_value=mock_response), \
              patch('domain_tracker.slack_notifier.logging') as mock_logging:
-            
+
             # ACT: Send slack alert
             send_slack_alert("Success test message")
-            
+
             # ASSERT: Should log successful send
             mock_logging.debug.assert_called_once()
             debug_message = mock_logging.debug.call_args[0][0]
@@ -197,11 +197,11 @@ class TestSlackNotifier:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.text = "ok"
-        
+
         with patch('requests.post', return_value=mock_response) as mock_post:
             # ACT: Send slack alert
             send_slack_alert("Test user agent message")
-            
+
             # ASSERT: Should include User-Agent header
             mock_post.assert_called_once()
             call_args = mock_post.call_args
@@ -216,14 +216,14 @@ class TestSlackNotifier:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.text = "ok"
-        
+
         with patch('requests.post', return_value=mock_response) as mock_post:
             # ACT: Send slack alert
             send_slack_alert("Test content type message")
-            
+
             # ASSERT: Should set Content-Type header
             mock_post.assert_called_once()
             call_args = mock_post.call_args
             headers = call_args[1]['headers']
             assert 'Content-Type' in headers
-            assert headers['Content-Type'] == 'application/json' 
+            assert headers['Content-Type'] == 'application/json'

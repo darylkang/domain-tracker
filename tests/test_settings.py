@@ -1,7 +1,7 @@
 """
 Tests for domain tracker settings configuration.
 
-Following TDD approach - these tests define the expected behavior for 
+Following TDD approach - these tests define the expected behavior for
 domain-specific configuration management.
 """
 
@@ -26,7 +26,7 @@ class TestDomainTrackerSettings:
             # ACT & ASSERT: Should raise validation error for missing API key
             with pytest.raises(ValidationError) as exc_info:
                 Settings(_env_file=None)  # Prevent .env file loading
-            
+
             # Verify the error message mentions the missing field
             assert "whois_api_key" in str(exc_info.value).lower()
 
@@ -38,21 +38,21 @@ class TestDomainTrackerSettings:
             # ACT & ASSERT: Should raise validation error for missing Slack URL
             with pytest.raises(ValidationError) as exc_info:
                 Settings(_env_file=None)
-            
-            # Verify the error message mentions the missing field  
+
+            # Verify the error message mentions the missing field
             assert "slack_webhook_url" in str(exc_info.value).lower()
 
     def test_settings_loads_from_environment_variables(self) -> None:
         """Test that settings load correctly from environment variables."""
         # ARRANGE: Set required environment variables
         test_env = {
-            "WHOIS_API_KEY": "test_whois_key_123", 
+            "WHOIS_API_KEY": "test_whois_key_123",
             "SLACK_WEBHOOK_URL": "https://hooks.slack.com/test"
         }
         with patch.dict(os.environ, test_env, clear=True):
             # ACT: Create settings without .env file
             settings = Settings(_env_file=None)
-            
+
             # ASSERT: Values loaded correctly
             assert settings.whois_api_key == "test_whois_key_123"
             assert str(settings.slack_webhook_url) == "https://hooks.slack.com/test"
@@ -66,7 +66,7 @@ class TestDomainTrackerSettings:
         }, clear=True):
             # ACT: Create settings
             settings = Settings()
-            
+
             # ASSERT: Default check interval is set
             assert hasattr(settings, 'check_interval_hours')
             assert settings.check_interval_hours > 0
@@ -82,7 +82,7 @@ class TestDomainTrackerSettings:
             # ACT & ASSERT: Should raise validation error for invalid URL
             with pytest.raises(ValidationError) as exc_info:
                 Settings()
-            
+
             error_msg = str(exc_info.value).lower()
             assert "url" in error_msg or "invalid" in error_msg
 
@@ -96,7 +96,7 @@ class TestDomainTrackerSettings:
         }, clear=True):
             # ACT: Create settings
             settings = Settings()
-            
+
             # ASSERT: Custom interval is used
             assert settings.check_interval_hours == 6
 
@@ -109,7 +109,7 @@ class TestDomainTrackerSettings:
         }, clear=True):
             # ACT: Create settings
             settings = Settings()
-            
+
             # ASSERT: Domains file path is configured
             assert hasattr(settings, 'domains_file_path')
             assert str(settings.domains_file_path).endswith('domains.txt')
@@ -118,7 +118,7 @@ class TestDomainTrackerSettings:
         """Test that settings can load from .env file."""
         # ACT: Create settings with default .env file loading
         settings = Settings()
-        
+
         # ASSERT: Values loaded from .env file
         assert settings.whois_api_key is not None
         assert settings.slack_webhook_url is not None
@@ -134,7 +134,7 @@ class TestDomainTrackerSettings:
         with patch.dict(os.environ, test_env, clear=True):
             # ACT: Create settings
             settings = Settings(_env_file=None)
-            
+
             # ASSERT: Default values are set
             assert settings.check_interval_hours == 1
             assert str(settings.domains_file_path) == "domains.txt"

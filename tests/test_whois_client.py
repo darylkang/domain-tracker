@@ -1,7 +1,7 @@
 """
 Tests for WhoisXML API client functionality.
 
-Following TDD approach - these tests define the expected behavior for 
+Following TDD approach - these tests define the expected behavior for
 domain availability checking via WhoisXML API.
 """
 
@@ -30,11 +30,11 @@ class TestWhoisClient:
                 "domainAvailability": "AVAILABLE"
             }
         }
-        
+
         with patch('requests.get', return_value=mock_response):
             # ACT: Check domain availability
             result = check_domain_availability("available-example.com")
-            
+
             # ASSERT: Should return True for available domain
             assert result is True
 
@@ -48,11 +48,11 @@ class TestWhoisClient:
                 "domainAvailability": "UNAVAILABLE"
             }
         }
-        
+
         with patch('requests.get', return_value=mock_response):
             # ACT: Check domain availability
             result = check_domain_availability("google.com")
-            
+
             # ASSERT: Should return False for unavailable domain
             assert result is False
 
@@ -66,18 +66,18 @@ class TestWhoisClient:
                 "domainAvailability": "AVAILABLE"
             }
         }
-        
+
         with patch('requests.get', return_value=mock_response) as mock_get, \
              patch('domain_tracker.whois_client.Settings') as mock_settings_class:
-            
+
             # Configure mock settings
             mock_settings = Mock()
             mock_settings.whois_api_key = "test-api-key-12345"
             mock_settings_class.return_value = mock_settings
-            
+
             # ACT: Check domain availability
             check_domain_availability("test.com")
-            
+
             # ASSERT: Should use API key from settings in request
             mock_get.assert_called_once()
             call_args = mock_get.call_args
@@ -99,7 +99,7 @@ class TestWhoisClient:
         with patch('requests.get', side_effect=ConnectionError("Unable to connect")):
             # ACT: Check domain availability with connection error
             result = check_domain_availability("connection-error-test.com")
-            
+
             # ASSERT: Should return False on connection error (conservative)
             assert result is False
 
@@ -109,11 +109,11 @@ class TestWhoisClient:
         mock_response = Mock()
         mock_response.status_code = 429  # Rate limit error
         mock_response.raise_for_status.side_effect = requests.HTTPError("429 Rate Limited")
-        
+
         with patch('requests.get', return_value=mock_response):
             # ACT: Check domain availability with HTTP error
             result = check_domain_availability("rate-limited-test.com")
-            
+
             # ASSERT: Should return False on HTTP error (conservative)
             assert result is False
 
@@ -123,11 +123,11 @@ class TestWhoisClient:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.side_effect = json.JSONDecodeError("Invalid JSON", "", 0)
-        
+
         with patch('requests.get', return_value=mock_response):
             # ACT: Check domain availability with invalid JSON
             result = check_domain_availability("invalid-json-test.com")
-            
+
             # ASSERT: Should return False on invalid response (conservative)
             assert result is False
 
@@ -139,11 +139,11 @@ class TestWhoisClient:
         mock_response.json.return_value = {
             "ErrorMessage": "Domain format invalid"
         }
-        
+
         with patch('requests.get', return_value=mock_response):
             # ACT: Check domain availability with missing DomainInfo
             result = check_domain_availability("malformed-response-test.com")
-            
+
             # ASSERT: Should return False when DomainInfo missing (conservative)
             assert result is False
 
@@ -157,11 +157,11 @@ class TestWhoisClient:
                 "domainAvailability": "AVAILABLE"
             }
         }
-        
+
         with patch('requests.get', return_value=mock_response) as mock_get:
             # ACT: Check domain availability
             check_domain_availability("endpoint-test.com")
-            
+
             # ASSERT: Should call correct WhoisXML API URL
             mock_get.assert_called_once()
             call_url = mock_get.call_args[0][0]
@@ -177,11 +177,11 @@ class TestWhoisClient:
                 "domainAvailability": "AVAILABLE"
             }
         }
-        
+
         with patch('requests.get', return_value=mock_response) as mock_get:
             # ACT: Check specific domain availability
             check_domain_availability("parameter-test.com")
-            
+
             # ASSERT: Should include domain in request parameters
             mock_get.assert_called_once()
             call_args = mock_get.call_args
@@ -198,11 +198,11 @@ class TestWhoisClient:
                 "domainAvailability": "AVAILABLE"
             }
         }
-        
+
         with patch('requests.get', return_value=mock_response) as mock_get:
             # ACT: Check domain availability
             check_domain_availability("timeout-test.com")
-            
+
             # ASSERT: Should use timeout in request
             mock_get.assert_called_once()
             call_args = mock_get.call_args
@@ -219,8 +219,8 @@ class TestWhoisClient:
             "test.",      # Ends with dot
             "too.many.dots.in.this.very.long.domain.name.com",  # Very long
         ]
-        
+
         for invalid_domain in invalid_domains:
             # ACT & ASSERT: Should return False for invalid domains
             result = check_domain_availability(invalid_domain)
-            assert result is False, f"Should return False for invalid domain: {invalid_domain}" 
+            assert result is False, f"Should return False for invalid domain: {invalid_domain}"
