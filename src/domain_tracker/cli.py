@@ -13,6 +13,7 @@ from typing import Annotated
 import typer
 
 from domain_tracker.domain_management import load_domains
+from domain_tracker.settings import Settings
 from domain_tracker.slack_notifier import send_slack_alert
 from domain_tracker.whois_client import check_domain_availability
 
@@ -53,21 +54,24 @@ def print_summary(total_domains: int, available_domains: list[str]) -> None:
 def check_single_domain(domain: str) -> None:
     """Check availability of a single domain and send Slack alert."""
     try:
+        # Load settings
+        settings = Settings()  # type: ignore[call-arg]
+
         print(f"🔍 Checking {domain}...")
-        is_available = check_domain_availability(domain)
+        is_available = check_domain_availability(domain, settings)
 
         if is_available:
             message = AVAILABLE_DOMAIN_MESSAGE.format(domain=domain)
             print(message)
             try:
-                send_slack_alert(message)
+                send_slack_alert(message, settings)
             except Exception as e:
                 print(f"⚠️  Error sending Slack alert: {e}")
         else:
             message = UNAVAILABLE_DOMAIN_MESSAGE.format(domain=domain)
             print(message)
             try:
-                send_slack_alert(message)
+                send_slack_alert(message, settings)
             except Exception as e:
                 print(f"⚠️  Error sending Slack alert: {e}")
 
@@ -116,6 +120,9 @@ def check_domains(
         logging.basicConfig(level=logging.DEBUG)
 
     try:
+        # Load settings
+        settings = Settings()  # type: ignore[call-arg]
+
         # Load domains from file
         print("🔍 Checking domain availability...")
         domains = load_domains()
@@ -131,7 +138,7 @@ def check_domains(
         for domain in domains:
             try:
                 print(f"  Checking {domain}...", end=" ")
-                is_available = check_domain_availability(domain)
+                is_available = check_domain_availability(domain, settings)
 
                 if is_available:
                     print("✅ Available")
@@ -139,7 +146,9 @@ def check_domains(
 
                     # Send Slack alert for available domain
                     try:
-                        send_slack_alert(AVAILABLE_DOMAIN_MESSAGE.format(domain=domain))
+                        send_slack_alert(
+                            AVAILABLE_DOMAIN_MESSAGE.format(domain=domain), settings
+                        )
                     except Exception as e:
                         print(f"    ⚠️  Error sending Slack alert: {e}")
 
@@ -151,7 +160,8 @@ def check_domains(
                     if notify_all:
                         try:
                             send_slack_alert(
-                                UNAVAILABLE_DOMAIN_MESSAGE.format(domain=domain)
+                                UNAVAILABLE_DOMAIN_MESSAGE.format(domain=domain),
+                                settings,
                             )
                         except Exception as e:
                             print(f"    ⚠️  Error sending Slack alert: {e}")

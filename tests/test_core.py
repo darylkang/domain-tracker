@@ -49,10 +49,9 @@ class TestMyPackage:
     """Test cases for MyPackage class."""
 
     @pytest.fixture
-    def package(self) -> MyPackage:
+    def package(self, test_settings: Settings) -> MyPackage:
         """Provide MyPackage instance for testing."""
-        settings = Settings(debug=True)
-        return MyPackage(settings=settings)
+        return MyPackage(settings=test_settings)
 
     def test_package_initialization(self, package: MyPackage) -> None:
         """Test MyPackage initialization."""

@@ -21,21 +21,23 @@ DEFAULT_TIMEOUT_SECONDS = 30
 MAX_DOMAIN_LENGTH = 253
 
 
-def check_domain_availability(domain: str) -> bool:
+def check_domain_availability(domain: str, settings: Settings | None = None) -> bool:
     """
     Check if a domain is available for registration using WhoisXML API.
 
     Args:
         domain: Domain name to check (e.g., 'example.com').
+        settings: Settings instance with API configuration. If None, loads from environment.
 
     Returns:
         True if the domain is available for registration, False otherwise.
         Returns False for any errors or ambiguous responses (conservative approach).
 
     Example:
-        >>> check_domain_availability('available-domain.com')
+        >>> settings = Settings(whois_api_key="key", slack_webhook_url="url")
+        >>> check_domain_availability('available-domain.com', settings)
         True
-        >>> check_domain_availability('google.com')
+        >>> check_domain_availability('google.com', settings)
         False
     """
     # Validate domain format first
@@ -44,7 +46,8 @@ def check_domain_availability(domain: str) -> bool:
 
     try:
         # Load settings and API key
-        settings = Settings()
+        if settings is None:
+            settings = Settings()  # type: ignore[call-arg]
         api_key = settings.whois_api_key
 
         # Prepare API request
@@ -66,7 +69,7 @@ def check_domain_availability(domain: str) -> bool:
 
         # Extract domain availability status
         domain_info = data.get("DomainInfo", {})
-        availability = domain_info.get("domainAvailability", "").upper()
+        availability = str(domain_info.get("domainAvailability", "")).upper()
 
         # Return True only if explicitly marked as AVAILABLE
         return availability == "AVAILABLE"

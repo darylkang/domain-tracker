@@ -8,7 +8,7 @@ the CLI interface that checks domains and sends Slack alerts.
 from __future__ import annotations
 
 import logging
-from unittest.mock import Mock, patch
+from unittest.mock import ANY, Mock, patch
 
 from typer.testing import CliRunner
 
@@ -51,8 +51,8 @@ class TestCLIDomainsCommand:
         assert result.exit_code == 0
         mock_load.assert_called_once()
         assert mock_check.call_count == 2
-        mock_check.assert_any_call("example.com")
-        mock_check.assert_any_call("test.org")
+        mock_check.assert_any_call("example.com", ANY)
+        mock_check.assert_any_call("test.org", ANY)
 
     @patch("domain_tracker.cli.load_domains")
     @patch("domain_tracker.cli.check_domain_availability")
@@ -70,7 +70,7 @@ class TestCLIDomainsCommand:
 
         # ASSERT: Should send Slack alert only for available domain
         assert result.exit_code == 0
-        mock_slack.assert_called_once_with("✅ Domain available: available.com")
+        mock_slack.assert_called_once_with("✅ Domain available: available.com", ANY)
 
     @patch("domain_tracker.cli.load_domains")
     @patch("domain_tracker.cli.check_domain_availability")
@@ -89,8 +89,8 @@ class TestCLIDomainsCommand:
         # ASSERT: Should send Slack alerts for both domains
         assert result.exit_code == 0
         assert mock_slack.call_count == 2
-        mock_slack.assert_any_call("✅ Domain available: available.com")
-        mock_slack.assert_any_call("❌ Domain NOT available: unavailable.com")
+        mock_slack.assert_any_call("✅ Domain available: available.com", ANY)
+        mock_slack.assert_any_call("❌ Domain NOT available: unavailable.com", ANY)
 
     @patch("domain_tracker.cli.load_domains")
     @patch("domain_tracker.cli.check_domain_availability")
@@ -230,8 +230,8 @@ class TestCLISingleDomainCheck:
 
         # ASSERT: Should check domain and show success message
         assert result.exit_code == 0
-        mock_check.assert_called_once_with("example.com")
-        mock_slack.assert_called_once_with("✅ Domain available: example.com")
+        mock_check.assert_called_once_with("example.com", ANY)
+        mock_slack.assert_called_once_with("✅ Domain available: example.com", ANY)
         assert "✅ Domain available: example.com" in result.stdout
 
     @patch("domain_tracker.cli.check_domain_availability")
@@ -248,8 +248,10 @@ class TestCLISingleDomainCheck:
 
         # ASSERT: Should check domain and show unavailable message
         assert result.exit_code == 0
-        mock_check.assert_called_once_with("unavailable.com")
-        mock_slack.assert_called_once_with("❌ Domain NOT available: unavailable.com")
+        mock_check.assert_called_once_with("unavailable.com", ANY)
+        mock_slack.assert_called_once_with(
+            "❌ Domain NOT available: unavailable.com", ANY
+        )
         assert "❌ Domain NOT available: unavailable.com" in result.stdout
 
     @patch("domain_tracker.cli.check_domain_availability")
@@ -266,7 +268,7 @@ class TestCLISingleDomainCheck:
 
         # ASSERT: Should exit with error and show helpful message
         assert result.exit_code == 1
-        mock_check.assert_called_once_with("test.com")
+        mock_check.assert_called_once_with("test.com", ANY)
         assert "❌ Error checking domain test.com" in result.stdout
         mock_slack.assert_not_called()
 
@@ -285,8 +287,8 @@ class TestCLISingleDomainCheck:
 
         # ASSERT: Should continue and show Slack error warning
         assert result.exit_code == 0
-        mock_check.assert_called_once_with("test.com")
-        mock_slack.assert_called_once_with("✅ Domain available: test.com")
+        mock_check.assert_called_once_with("test.com", ANY)
+        mock_slack.assert_called_once_with("✅ Domain available: test.com", ANY)
         assert "⚠️  Error sending Slack alert" in result.stdout
 
     def test_no_domain_argument_falls_back_to_existing_behavior(self) -> None:

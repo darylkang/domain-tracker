@@ -39,6 +39,7 @@ dev = [
     "pytest-cov",
     "pytest-xdist",  # For TDD watch mode (--looponfail flag)
     "ruff>=0.1.0",
+    "types-requests",  # Type stubs for requests library
 ]
 
 [project.urls]
@@ -63,6 +64,7 @@ dependencies = [
     "pytest-cov",
     "pytest-xdist",  # For TDD watch mode (--looponfail flag)
     "ruff>=0.1.0",
+    "types-requests",  # Type stubs for requests library
 ]
 
 [tool.hatch.envs.default.scripts]

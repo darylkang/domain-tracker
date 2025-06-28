@@ -20,22 +20,24 @@ USER_AGENT = "Domain-Tracker/1.0"
 MAX_MESSAGE_PREVIEW_LENGTH = 50
 
 
-def send_slack_alert(message: str) -> None:
+def send_slack_alert(message: str, settings: Settings | None = None) -> None:
     """
     Send a Slack alert message using webhook URL from settings.
 
     Args:
         message: The alert message to send to Slack.
+        settings: Settings instance with Slack configuration. If None, loads from environment.
 
     Raises:
         Does not raise exceptions - logs errors instead for graceful handling.
     """
     try:
         # Load settings
-        settings = Settings()
+        if settings is None:
+            settings = Settings()  # type: ignore[call-arg]
 
         # Prepare request data
-        webhook_url = settings.slack_webhook_url
+        webhook_url = str(settings.slack_webhook_url)
         payload = {"text": message}
         headers = {"Content-Type": "application/json", "User-Agent": USER_AGENT}
 

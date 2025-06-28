@@ -55,7 +55,9 @@ class MyPackage:
 
     def __init__(self, settings: Settings | None = None) -> None:
         """Initialize the package with optional settings."""
-        self.settings = settings or Settings()
+        if settings is None:
+            raise ValueError("Settings must be provided")
+        self.settings = settings
         logger.debug("MyPackage initialized")
 
     def process(

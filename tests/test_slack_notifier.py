@@ -12,6 +12,7 @@ from unittest.mock import Mock, patch
 import requests
 from requests.exceptions import ConnectionError, Timeout
 
+from domain_tracker.settings import Settings
 from domain_tracker.slack_notifier import send_slack_alert
 
 
@@ -32,33 +33,23 @@ class TestSlackNotifier:
             # ASSERT: Should make POST request to Slack
             mock_post.assert_called_once()
 
-    def test_send_slack_alert_loads_webhook_url_from_settings(self) -> None:
+    def test_send_slack_alert_loads_webhook_url_from_settings(
+        self, test_settings: Settings
+    ) -> None:
         """Test that webhook URL is loaded from settings configuration."""
-        # ARRANGE: Mock settings and successful response
+        # ARRANGE: Mock successful response
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.text = "ok"
 
-        with (
-            patch("requests.post", return_value=mock_response) as mock_post,
-            patch("domain_tracker.slack_notifier.Settings") as mock_settings_class,
-        ):
-            # Configure mock settings
-            mock_settings = Mock()
-            mock_settings.slack_webhook_url = (
-                "https://hooks.slack.com/services/test/webhook/url"
-            )
-            mock_settings_class.return_value = mock_settings
-
-            # ACT: Send slack alert
-            send_slack_alert("Test message")
+        with patch("requests.post", return_value=mock_response) as mock_post:
+            # ACT: Send slack alert with test settings
+            send_slack_alert("Test message", test_settings)
 
             # ASSERT: Should use webhook URL from settings
             mock_post.assert_called_once()
             call_args = mock_post.call_args
-            assert (
-                call_args[0][0] == "https://hooks.slack.com/services/test/webhook/url"
-            )
+            assert call_args[0][0] == "https://hooks.slack.com/test"
 
     def test_send_slack_alert_uses_correct_json_payload(self) -> None:
         """Test that correct JSON payload is sent to Slack."""

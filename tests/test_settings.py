@@ -21,23 +21,23 @@ class TestDomainTrackerSettings:
 
     def test_settings_requires_whois_api_key(self) -> None:
         """Test that WHOIS_API_KEY is required."""
-        # ARRANGE: No environment variables set and no .env file loading
+        # ARRANGE: No environment variables set and no .env file
         with patch.dict(os.environ, {}, clear=True):
             # ACT & ASSERT: Should raise validation error for missing API key
             with pytest.raises(ValidationError) as exc_info:
-                Settings(_env_file=None)  # Prevent .env file loading
+                Settings(_env_file=None)  # type: ignore[call-arg]
 
             # Verify the error message mentions the missing field
             assert "whois_api_key" in str(exc_info.value).lower()
 
     def test_settings_requires_slack_webhook_url(self) -> None:
         """Test that SLACK_WEBHOOK_URL is required."""
-        # ARRANGE: Only WHOIS_API_KEY set, missing SLACK_WEBHOOK_URL
+        # ARRANGE: Only WHOIS_API_KEY set, missing SLACK_WEBHOOK_URL, no .env file
         test_env = {"WHOIS_API_KEY": "test_key"}
         with patch.dict(os.environ, test_env, clear=True):
             # ACT & ASSERT: Should raise validation error for missing Slack URL
             with pytest.raises(ValidationError) as exc_info:
-                Settings(_env_file=None)
+                Settings(_env_file=None)  # type: ignore[call-arg]
 
             # Verify the error message mentions the missing field
             assert "slack_webhook_url" in str(exc_info.value).lower()
@@ -50,8 +50,8 @@ class TestDomainTrackerSettings:
             "SLACK_WEBHOOK_URL": "https://hooks.slack.com/test",
         }
         with patch.dict(os.environ, test_env, clear=True):
-            # ACT: Create settings without .env file
-            settings = Settings(_env_file=None)
+            # ACT: Create settings
+            settings = Settings()  # type: ignore[call-arg]
 
             # ASSERT: Values loaded correctly
             assert settings.whois_api_key == "test_whois_key_123"
@@ -69,7 +69,7 @@ class TestDomainTrackerSettings:
             clear=True,
         ):
             # ACT: Create settings
-            settings = Settings()
+            settings = Settings()  # type: ignore[call-arg]
 
             # ASSERT: Default check interval is set
             assert hasattr(settings, "check_interval_hours")
@@ -89,7 +89,7 @@ class TestDomainTrackerSettings:
         ):
             # ACT & ASSERT: Should raise validation error for invalid URL
             with pytest.raises(ValidationError) as exc_info:
-                Settings()
+                Settings()  # type: ignore[call-arg]
 
             error_msg = str(exc_info.value).lower()
             assert "url" in error_msg or "invalid" in error_msg
@@ -107,7 +107,7 @@ class TestDomainTrackerSettings:
             clear=True,
         ):
             # ACT: Create settings
-            settings = Settings()
+            settings = Settings()  # type: ignore[call-arg]
 
             # ASSERT: Custom interval is used
             assert settings.check_interval_hours == 6
@@ -124,7 +124,7 @@ class TestDomainTrackerSettings:
             clear=True,
         ):
             # ACT: Create settings
-            settings = Settings()
+            settings = Settings()  # type: ignore[call-arg]
 
             # ASSERT: Domains file path is configured
             assert hasattr(settings, "domains_file_path")
@@ -133,7 +133,7 @@ class TestDomainTrackerSettings:
     def test_settings_loads_from_env_file(self) -> None:
         """Test that settings can load from .env file."""
         # ACT: Create settings with default .env file loading
-        settings = Settings()
+        settings = Settings()  # type: ignore[call-arg]
 
         # ASSERT: Values loaded from .env file
         assert settings.whois_api_key is not None
@@ -149,7 +149,7 @@ class TestDomainTrackerSettings:
         }
         with patch.dict(os.environ, test_env, clear=True):
             # ACT: Create settings
-            settings = Settings(_env_file=None)
+            settings = Settings()  # type: ignore[call-arg]
 
             # ASSERT: Default values are set
             assert settings.check_interval_hours == 1

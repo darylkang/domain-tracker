@@ -13,6 +13,7 @@ from unittest.mock import Mock, patch
 import requests
 from requests.exceptions import ConnectionError, Timeout
 
+from domain_tracker.settings import Settings
 from domain_tracker.whois_client import check_domain_availability
 
 
@@ -53,32 +54,26 @@ class TestWhoisClient:
             # ASSERT: Should return False for unavailable domain
             assert result is False
 
-    def test_check_domain_availability_loads_api_key_from_settings(self) -> None:
+    def test_check_domain_availability_loads_api_key_from_settings(
+        self, test_settings: Settings
+    ) -> None:
         """Test that API key is loaded from settings configuration."""
-        # ARRANGE: Mock settings and API response
+        # ARRANGE: Mock API response
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
             "DomainInfo": {"domainAvailability": "AVAILABLE"}
         }
 
-        with (
-            patch("requests.get", return_value=mock_response) as mock_get,
-            patch("domain_tracker.whois_client.Settings") as mock_settings_class,
-        ):
-            # Configure mock settings
-            mock_settings = Mock()
-            mock_settings.whois_api_key = "test-api-key-12345"
-            mock_settings_class.return_value = mock_settings
-
-            # ACT: Check domain availability
-            check_domain_availability("test.com")
+        with patch("requests.get", return_value=mock_response) as mock_get:
+            # ACT: Check domain availability with test settings
+            check_domain_availability("test.com", test_settings)
 
             # ASSERT: Should use API key from settings in request
             mock_get.assert_called_once()
             call_args = mock_get.call_args
             assert "apiKey" in call_args[1]["params"]
-            assert call_args[1]["params"]["apiKey"] == "test-api-key-12345"
+            assert call_args[1]["params"]["apiKey"] == "test-whois-key"
 
     def test_check_domain_availability_handles_network_timeout(self) -> None:
         """Test graceful handling of network timeouts."""
