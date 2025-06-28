@@ -1,0 +1,84 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "vibe_coding_template"
+dynamic = ["version"]
+description = "A minimal Python template with enforced TDD for LLM-assisted development"
+authors = [{ name = "Daryl Kang", email = "darylkang@live.com" }]
+readme = "README.md"
+requires-python = ">=3.13"
+keywords = ["template", "tdd", "cursor", "hatch", "cli", "development"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+    "pydantic>=2.0",
+    "pydantic-settings>=2.0",
+    "python-dotenv",
+    "typer>=0.9.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "mypy",
+    "pytest>=7.0",
+    "pytest-cov",
+    "pytest-xdist",  # For TDD watch mode (--looponfail flag)
+    "ruff>=0.1.0",
+]
+
+[project.urls]
+Documentation = "https://github.com/darylkang/vibe-coding-template#readme"
+Issues = "https://github.com/darylkang/vibe-coding-template/issues"
+Source = "https://github.com/darylkang/vibe-coding-template"
+
+[project.scripts]
+vibe = "my_package.cli:app"
+
+[tool.hatch.version]
+path = "src/my_package/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/my_package"]
+
+[tool.hatch.envs.default]
+dependencies = [
+    "mypy",
+    "pytest>=7.0",
+    "pytest-cov",
+    "pytest-xdist",  # For TDD watch mode (--looponfail flag)
+    "ruff>=0.1.0",
+]
+
+[tool.hatch.envs.default.scripts]
+test = "pytest {args:tests}"
+lint = "ruff check {args:.}"
+format = "ruff format {args:.}"
+type-check = "mypy {args:src/my_package tests}"
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = ["-ra", "--strict-markers", "--cov=my_package", "--cov-fail-under=50"]
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.13"
+check_untyped_defs = true
+disallow_untyped_defs = true
+warn_return_any = true
+warn_unused_configs = true
+
+[tool.ruff]
+target-version = "py313"
+line-length = 88
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+ignore = ["E501"]  # Line too long (handled by formatter)
