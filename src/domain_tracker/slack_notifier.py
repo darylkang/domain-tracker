@@ -37,17 +37,11 @@ def send_slack_alert(message: str) -> None:
         # Prepare request data
         webhook_url = settings.slack_webhook_url
         payload = {"text": message}
-        headers = {
-            "Content-Type": "application/json",
-            "User-Agent": USER_AGENT
-        }
+        headers = {"Content-Type": "application/json", "User-Agent": USER_AGENT}
 
         # Send request to Slack
         response = requests.post(
-            webhook_url,
-            json=payload,
-            headers=headers,
-            timeout=DEFAULT_TIMEOUT_SECONDS
+            webhook_url, json=payload, headers=headers, timeout=DEFAULT_TIMEOUT_SECONDS
         )
 
         # Check for HTTP errors
@@ -58,7 +52,9 @@ def send_slack_alert(message: str) -> None:
             logging.warning(f"Slack returned unexpected response: {response.text}")
 
         # Log successful send
-        logging.debug(f"Successfully sent Slack alert: {message[:MAX_MESSAGE_PREVIEW_LENGTH]}...")
+        logging.debug(
+            f"Successfully sent Slack alert: {message[:MAX_MESSAGE_PREVIEW_LENGTH]}..."
+        )
 
     except (ConnectionError, Timeout, RequestException) as e:
         # Log network errors gracefully

@@ -101,7 +101,7 @@ def check_domains(
         bool,
         typer.Option(
             "--notify-all",
-            help="Send Slack alerts for all domains, regardless of availability"
+            help="Send Slack alerts for all domains, regardless of availability",
         ),
     ] = False,
     debug: Annotated[
@@ -150,7 +150,9 @@ def check_domains(
                     # Send Slack alert for unavailable domain if notify_all is enabled
                     if notify_all:
                         try:
-                            send_slack_alert(UNAVAILABLE_DOMAIN_MESSAGE.format(domain=domain))
+                            send_slack_alert(
+                                UNAVAILABLE_DOMAIN_MESSAGE.format(domain=domain)
+                            )
                         except Exception as e:
                             print(f"    ⚠️  Error sending Slack alert: {e}")
 

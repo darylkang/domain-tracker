@@ -26,7 +26,9 @@ class TestDomainListManagement:
 test.org
 mydomain.net"""
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as tmp_file:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".txt", delete=False
+        ) as tmp_file:
             tmp_file.write(domains_content)
             tmp_file.flush()
             tmp_path = Path(tmp_file.name)
@@ -36,7 +38,7 @@ mydomain.net"""
             result = load_domains(tmp_path)
 
             # ASSERT: Should return list of domain strings
-            assert result == ['example.com', 'test.org', 'mydomain.net']
+            assert result == ["example.com", "test.org", "mydomain.net"]
             assert len(result) == 3
             assert all(isinstance(domain, str) for domain in result)
         finally:
@@ -45,7 +47,9 @@ mydomain.net"""
     def test_load_domains_handles_empty_file(self) -> None:
         """Test that load_domains handles empty files gracefully."""
         # ARRANGE: Create an empty temporary file
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as tmp_file:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".txt", delete=False
+        ) as tmp_file:
             tmp_file.write("")
             tmp_file.flush()
             tmp_path = Path(tmp_file.name)
@@ -81,7 +85,9 @@ test.org
 mydomain.net
 # Final comment"""
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as tmp_file:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".txt", delete=False
+        ) as tmp_file:
             tmp_file.write(domains_content)
             tmp_file.flush()
             tmp_path = Path(tmp_file.name)
@@ -91,7 +97,7 @@ mydomain.net
             result = load_domains(tmp_path)
 
             # ASSERT: Should only return valid domain lines
-            assert result == ['example.com', 'test.org', 'mydomain.net']
+            assert result == ["example.com", "test.org", "mydomain.net"]
             assert len(result) == 3
         finally:
             tmp_path.unlink()  # Clean up temp file
@@ -108,7 +114,9 @@ mydomain.net
 invalid-end.
 toolongdomainnamethatexceedsmaximumlength.com"""
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as tmp_file:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".txt", delete=False
+        ) as tmp_file:
             tmp_file.write(domains_content)
             tmp_file.flush()
             tmp_path = Path(tmp_file.name)
@@ -118,11 +126,11 @@ toolongdomainnamethatexceedsmaximumlength.com"""
             result = load_domains(tmp_path)
 
             # ASSERT: Should only return valid domains
-            assert result == ['example.com', 'test.org', 'mydomain.net']
+            assert result == ["example.com", "test.org", "mydomain.net"]
             assert len(result) == 3
             # Should not contain invalid domains
-            assert 'invalid-domain' not in result
-            assert 'just-text-no-dot' not in result
+            assert "invalid-domain" not in result
+            assert "just-text-no-dot" not in result
         finally:
             tmp_path.unlink()  # Clean up temp file
 
@@ -133,7 +141,9 @@ toolongdomainnamethatexceedsmaximumlength.com"""
 Test.Org
    MYDOMAIN.NET   """
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as tmp_file:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".txt", delete=False
+        ) as tmp_file:
             tmp_file.write(domains_content)
             tmp_file.flush()
             tmp_path = Path(tmp_file.name)
@@ -143,7 +153,7 @@ Test.Org
             result = load_domains(tmp_path)
 
             # ASSERT: Should return lowercase, trimmed domains
-            assert result == ['example.com', 'test.org', 'mydomain.net']
+            assert result == ["example.com", "test.org", "mydomain.net"]
             assert len(result) == 3
         finally:
             tmp_path.unlink()  # Clean up temp file
@@ -153,9 +163,10 @@ Test.Org
         # ARRANGE: Mock the default domains.txt file
         domains_content = "default.com\ntest.com"
 
-        with patch('pathlib.Path.exists') as mock_exists, \
-             patch('pathlib.Path.read_text') as mock_read_text:
-
+        with (
+            patch("pathlib.Path.exists") as mock_exists,
+            patch("pathlib.Path.read_text") as mock_read_text,
+        ):
             mock_exists.return_value = True
             mock_read_text.return_value = domains_content
 
@@ -163,6 +174,6 @@ Test.Org
             result = load_domains()
 
             # ASSERT: Should use default path and return domains
-            assert result == ['default.com', 'test.com']
+            assert result == ["default.com", "test.com"]
             # Verify it tried to read from default path
             mock_read_text.assert_called_once()

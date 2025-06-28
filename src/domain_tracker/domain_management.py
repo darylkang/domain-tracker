@@ -30,14 +30,14 @@ def load_domains(file_path: Path | None = None) -> list[str]:
     """
     # Use default path if none provided
     if file_path is None:
-        file_path = Path('domains.txt')
+        file_path = Path("domains.txt")
 
     # Check if file exists
     if not file_path.exists():
         raise FileNotFoundError(f"Domain file not found: {file_path}")
 
     # Read file content
-    content = file_path.read_text(encoding='utf-8')
+    content = file_path.read_text(encoding="utf-8")
 
     # Process lines
     domains = []
@@ -46,7 +46,7 @@ def load_domains(file_path: Path | None = None) -> list[str]:
         line = line.strip()
 
         # Skip empty lines and comments
-        if not line or line.startswith('#'):
+        if not line or line.startswith("#"):
             continue
 
         # Normalize to lowercase
@@ -72,9 +72,9 @@ def _is_valid_domain(domain: str) -> bool:
     # Basic domain validation regex
     # Must have at least one dot, valid characters, and reasonable length
     domain_pattern = re.compile(
-        r'^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?'  # Label (up to 63 chars)
-        r'(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)*'  # More labels
-        r'\.[a-zA-Z]{2,}$'  # TLD (at least 2 chars)
+        r"^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?"  # Label (up to 63 chars)
+        r"(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)*"  # More labels
+        r"\.[a-zA-Z]{2,}$"  # TLD (at least 2 chars)
     )
 
     # Check basic format
@@ -87,15 +87,15 @@ def _is_valid_domain(domain: str) -> bool:
         return False
 
     # Domain must contain at least one dot
-    if '.' not in domain:
+    if "." not in domain:
         return False
 
     # Domain cannot start or end with dot
-    if domain.startswith('.') or domain.endswith('.'):
+    if domain.startswith(".") or domain.endswith("."):
         return False
 
     # Check individual label lengths (max 63 chars each)
-    labels = domain.split('.')
+    labels = domain.split(".")
     for label in labels:
         if len(label) > 63 or len(label) == 0:
             return False

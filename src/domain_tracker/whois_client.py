@@ -49,18 +49,10 @@ def check_domain_availability(domain: str) -> bool:
 
         # Prepare API request
         url = WHOISXML_API_URL
-        params = {
-            "apiKey": api_key,
-            "domainName": domain,
-            "format": "json"
-        }
+        params = {"apiKey": api_key, "domainName": domain, "format": "json"}
 
         # Make API request with timeout
-        response = requests.get(
-            url,
-            params=params,
-            timeout=DEFAULT_TIMEOUT_SECONDS
-        )
+        response = requests.get(url, params=params, timeout=DEFAULT_TIMEOUT_SECONDS)
 
         # Check HTTP status
         response.raise_for_status()
@@ -109,18 +101,18 @@ def _is_valid_domain_format(domain: str) -> bool:
         return False
 
     # Cannot start or end with dot
-    if domain.startswith('.') or domain.endswith('.'):
+    if domain.startswith(".") or domain.endswith("."):
         return False
 
     # Must contain at least one dot (for TLD)
-    if '.' not in domain:
+    if "." not in domain:
         return False
 
     # Basic regex validation for domain format
     domain_pattern = re.compile(
-        r'^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?'  # Label
-        r'(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)*'  # More labels
-        r'\.[a-zA-Z]{2,}$'  # TLD
+        r"^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?"  # Label
+        r"(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)*"  # More labels
+        r"\.[a-zA-Z]{2,}$"  # TLD
     )
 
     return bool(domain_pattern.match(domain))

@@ -47,7 +47,7 @@ class TestDomainTrackerSettings:
         # ARRANGE: Set required environment variables
         test_env = {
             "WHOIS_API_KEY": "test_whois_key_123",
-            "SLACK_WEBHOOK_URL": "https://hooks.slack.com/test"
+            "SLACK_WEBHOOK_URL": "https://hooks.slack.com/test",
         }
         with patch.dict(os.environ, test_env, clear=True):
             # ACT: Create settings without .env file
@@ -60,25 +60,33 @@ class TestDomainTrackerSettings:
     def test_settings_has_default_check_interval(self) -> None:
         """Test that check interval has a sensible default."""
         # ARRANGE: Required environment variables only
-        with patch.dict(os.environ, {
-            "WHOIS_API_KEY": "test-key",
-            "SLACK_WEBHOOK_URL": "https://hooks.slack.com/test",
-        }, clear=True):
+        with patch.dict(
+            os.environ,
+            {
+                "WHOIS_API_KEY": "test-key",
+                "SLACK_WEBHOOK_URL": "https://hooks.slack.com/test",
+            },
+            clear=True,
+        ):
             # ACT: Create settings
             settings = Settings()
 
             # ASSERT: Default check interval is set
-            assert hasattr(settings, 'check_interval_hours')
+            assert hasattr(settings, "check_interval_hours")
             assert settings.check_interval_hours > 0
             assert isinstance(settings.check_interval_hours, int)
 
     def test_settings_validates_slack_webhook_url_format(self) -> None:
         """Test that Slack webhook URL is validated for proper format."""
         # ARRANGE: Valid WHOIS key but invalid Slack URL
-        with patch.dict(os.environ, {
-            "WHOIS_API_KEY": "test-key",
-            "SLACK_WEBHOOK_URL": "not-a-valid-url",
-        }, clear=True):
+        with patch.dict(
+            os.environ,
+            {
+                "WHOIS_API_KEY": "test-key",
+                "SLACK_WEBHOOK_URL": "not-a-valid-url",
+            },
+            clear=True,
+        ):
             # ACT & ASSERT: Should raise validation error for invalid URL
             with pytest.raises(ValidationError) as exc_info:
                 Settings()
@@ -89,11 +97,15 @@ class TestDomainTrackerSettings:
     def test_settings_supports_custom_check_interval(self) -> None:
         """Test that check interval can be customized via environment."""
         # ARRANGE: Set all required variables plus custom interval
-        with patch.dict(os.environ, {
-            "WHOIS_API_KEY": "test-key",
-            "SLACK_WEBHOOK_URL": "https://hooks.slack.com/test",
-            "CHECK_INTERVAL_HOURS": "6",
-        }, clear=True):
+        with patch.dict(
+            os.environ,
+            {
+                "WHOIS_API_KEY": "test-key",
+                "SLACK_WEBHOOK_URL": "https://hooks.slack.com/test",
+                "CHECK_INTERVAL_HOURS": "6",
+            },
+            clear=True,
+        ):
             # ACT: Create settings
             settings = Settings()
 
@@ -103,16 +115,20 @@ class TestDomainTrackerSettings:
     def test_settings_has_domains_file_path(self) -> None:
         """Test that settings includes path to domains file."""
         # ARRANGE: Required environment variables
-        with patch.dict(os.environ, {
-            "WHOIS_API_KEY": "test-key",
-            "SLACK_WEBHOOK_URL": "https://hooks.slack.com/test",
-        }, clear=True):
+        with patch.dict(
+            os.environ,
+            {
+                "WHOIS_API_KEY": "test-key",
+                "SLACK_WEBHOOK_URL": "https://hooks.slack.com/test",
+            },
+            clear=True,
+        ):
             # ACT: Create settings
             settings = Settings()
 
             # ASSERT: Domains file path is configured
-            assert hasattr(settings, 'domains_file_path')
-            assert str(settings.domains_file_path).endswith('domains.txt')
+            assert hasattr(settings, "domains_file_path")
+            assert str(settings.domains_file_path).endswith("domains.txt")
 
     def test_settings_loads_from_env_file(self) -> None:
         """Test that settings can load from .env file."""
@@ -129,7 +145,7 @@ class TestDomainTrackerSettings:
         # ARRANGE: Set only required fields
         test_env = {
             "WHOIS_API_KEY": "test_key",
-            "SLACK_WEBHOOK_URL": "https://hooks.slack.com/test"
+            "SLACK_WEBHOOK_URL": "https://hooks.slack.com/test",
         }
         with patch.dict(os.environ, test_env, clear=True):
             # ACT: Create settings
