@@ -10,7 +10,6 @@ from __future__ import annotations
 import logging
 from unittest.mock import Mock, patch
 
-import pytest
 from typer.testing import CliRunner
 
 from domain_tracker import __version__

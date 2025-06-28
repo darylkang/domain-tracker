@@ -7,13 +7,10 @@ sending Slack alerts when domains become available.
 
 from __future__ import annotations
 
-import json
-import logging
 from unittest.mock import Mock, patch
 
-import pytest
 import requests
-from requests.exceptions import ConnectionError, RequestException, Timeout
+from requests.exceptions import ConnectionError, Timeout
 
 from domain_tracker.slack_notifier import send_slack_alert
 

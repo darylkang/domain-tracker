@@ -9,13 +9,11 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any
 
 import requests
 from requests.exceptions import ConnectionError, RequestException, Timeout
 
 from domain_tracker.settings import Settings
-
 
 # API Configuration Constants
 WHOISXML_API_URL = "https://domain-availability.whoisxmlapi.com/api/v1"

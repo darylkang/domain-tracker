@@ -40,7 +40,7 @@ def print_summary(total_domains: int, available_domains: list[str]) -> None:
     """Print a summary of domain checking results."""
     available_count = len(available_domains)
 
-    print(f"\n📊 Summary:")
+    print("\n📊 Summary:")
     print(f"  Checked {total_domains} domains")
     print(f"  Found {available_count} available domains")
 

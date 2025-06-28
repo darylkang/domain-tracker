@@ -10,9 +10,8 @@ from __future__ import annotations
 import json
 from unittest.mock import Mock, patch
 
-import pytest
 import requests
-from requests.exceptions import ConnectionError, RequestException, Timeout
+from requests.exceptions import ConnectionError, Timeout
 
 from domain_tracker.whois_client import check_domain_availability
 

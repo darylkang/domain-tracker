@@ -8,13 +8,11 @@ become available for registration.
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 import requests
 from requests.exceptions import ConnectionError, RequestException, Timeout
 
 from domain_tracker.settings import Settings
-
 
 # Configuration Constants
 DEFAULT_TIMEOUT_SECONDS = 10
