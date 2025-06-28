@@ -1,228 +1,362 @@
-# 🚀 Vibe Coding Template
+# 🔍 Domain Drop Tracker
 
-A minimal Python starter template optimized for LLM-assisted development with **Test-Driven Development (TDD)** enforcement and modern tooling.
+A Python CLI tool for monitoring domain availability and sending Slack alerts when domains become available. Perfect for tracking expired or dropping domains that you want to register.
 
-[![CI](https://github.com/darylkang/vibe-coding-template/workflows/CI/badge.svg)](https://github.com/darylkang/vibe-coding-template/actions)
-[![Python 3.13](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/downloads/)
-[![TDD Enforced](https://img.shields.io/badge/TDD-enforced-green.svg)](https://github.com/darylkang/vibe-coding-template)
+[![CI](https://github.com/darylkang/domain-tracker/workflows/CI/badge.svg)](https://github.com/darylkang/domain-tracker/actions)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![Automated Domain Checking](https://github.com/darylkang/domain-tracker/workflows/Automated%20Domain%20Availability%20Checker/badge.svg)](https://github.com/darylkang/domain-tracker/actions)
 
-## ✨ What's Included
+## ✨ Features
 
-This template provides a clean foundation for modern Python development with **mandatory Test-Driven Development**:
-
-### 🧪 **TDD-First Development**
-- **Enforced Red-Green-Refactor cycle** via Cursor rules
-- **Test-first methodology** for all new features
-- **Comprehensive testing patterns** and examples
-- **pytest** with coverage reporting and watch mode
-
-### 🛠️ **Modern Development Stack**
-- **Hatch** for project management and virtual environments
-- **Pydantic v2** for data validation and settings
-- **Typer** for beautiful CLI interfaces
-- **Type Safety** with full mypy checking
-- **Code Quality** with Ruff linting and formatting
-
-### 🤖 **LLM-Optimized Workflow**
-- **Cursor rules** that enforce TDD and code quality
-- **TaskMaster AI integration** for structured task management
-- **Clean patterns** that AI can understand and extend
+- **🔄 Automated Domain Monitoring**: Hourly checks via GitHub Actions
+- **📱 Slack Notifications**: Instant alerts when domains become available
+- **⚡ Fast CLI Interface**: Check individual domains or batch process from file
+- **🛡️ Robust Error Handling**: Graceful failure handling with notification alerts
+- **🔧 Easy Configuration**: Simple environment variable setup
+- **📊 WhoisXML API Integration**: Reliable domain availability checking
 
 ## 🚀 Quick Start
 
-1. **Clone and install**
-   ```bash
-   git clone https://github.com/darylkang/vibe-coding-template.git
-   cd vibe-coding-template
-   make install
-   ```
-
-2. **Verify TDD setup**
-   ```bash
-   make test          # Run existing tests
-   make test-watch    # Start TDD watch mode
-   ```
-
-3. **Try the CLI**
-   ```bash
-   hatch run vibe process "hello world"
-   hatch run vibe info
-   ```
-
-## 🧪 TDD Development Workflow
-
-This template **enforces Test-Driven Development** through Cursor rules:
-
-### 🔴 RED → 🟢 GREEN → 🔄 REFACTOR
+### 1. Installation
 
 ```bash
-# 1. Write a failing test first
-pytest tests/test_new_feature.py::test_feature -v  # Should FAIL
+# Clone the repository
+git clone https://github.com/darylkang/domain-tracker.git
+cd domain-tracker
 
-# 2. Write minimal code to pass
-pytest tests/test_new_feature.py::test_feature -v  # Should PASS  
+# Install dependencies (using hatch)
+make install
 
-# 3. Refactor and run all tests
-make test  # All tests should PASS
+# OR install with pip in a virtual environment
+pip install -e .
 ```
 
-### Available TDD Commands
+### 2. Configuration
 
 ```bash
-# Core TDD workflow
-make test-watch    # Continuous testing for TDD
-make test          # Run all tests
-make test-cov      # Run tests with coverage
-make test-file     # Run specific test file
+# Copy environment template
+cp .env.example .env
 
-# Development cycle
-make lint          # Check code quality
-make format        # Auto-format code
-make type-check    # Static type checking
-make clean         # Clean build artifacts
+# Edit .env with your actual keys
+WHOIS_API_KEY=your_whoisxml_api_key_here
+SLACK_WEBHOOK_URL=your_slack_webhook_url_here
 ```
+
+### 3. Add Domains to Monitor
+
+Edit `domains.txt` and add domains you want to monitor (one per line):
+
+```
+spectre.cx
+example-domain.com
+another-domain.org
+```
+
+### 4. Test the Setup
+
+```bash
+# Check a single domain
+vibe check example.com
+
+# Check all domains from domains.txt
+vibe check-domains
+
+# Check with debug logging
+vibe check-domains --debug
+```
+
+## 📋 CLI Usage
+
+### Single Domain Check
+```bash
+# Check availability of a specific domain
+vibe check example.com
+vibe check spectre.cx
+```
+
+### Batch Domain Check
+```bash
+# Check all domains from domains.txt
+vibe check-domains
+
+# Check with notifications for all domains (not just available ones)
+vibe check-domains --notify-all
+
+# Enable debug logging
+vibe check-domains --debug
+```
+
+### Other Commands
+```bash
+# Show help
+vibe --help
+vibe check --help
+vibe check-domains --help
+
+# Show version
+vibe --version
+```
+
+## 🔧 Configuration Guide
+
+### Required Environment Variables
+
+Create a `.env` file in the project root with the following variables:
+
+```bash
+# WhoisXML API Key (Required)
+# Get your free API key at: https://whoisxml.whoisapi.com/
+WHOIS_API_KEY=at_1234567890abcdef...
+
+# Slack Webhook URL (Required) 
+# Create a webhook at: https://api.slack.com/messaging/webhooks
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX
+```
+
+### Optional Configuration
+
+```bash
+# Check interval for automated runs (default: 1 hour)
+CHECK_INTERVAL_HOURS=1
+
+# Custom path to domains file (default: domains.txt)
+DOMAINS_FILE_PATH=custom-domains.txt
+```
+
+## 📱 Slack Setup
+
+### 1. Create a Slack Webhook
+
+1. Go to [Slack API: Incoming Webhooks](https://api.slack.com/messaging/webhooks)
+2. Click "Create your Slack app"
+3. Choose "From scratch"
+4. Name your app (e.g., "Domain Tracker") and select your workspace
+5. Go to "Incoming Webhooks" and activate it
+6. Click "Add New Webhook to Workspace"
+7. Choose the channel for notifications
+8. Copy the webhook URL to your `.env` file
+
+### 2. Test Slack Integration
+
+```bash
+# This should send a test message to your Slack channel
+vibe check example.com
+```
+
+### Expected Slack Messages
+
+- **Available Domain**: "✅ Domain available: example.com"
+- **Unavailable Domain**: "❌ Domain NOT available: example.com" (only with `--notify-all`)
+- **Error Alert**: "🚨 Domain Tracker Error: [error details]" (when automation fails)
+
+## 🔑 WhoisXML API Setup
+
+### 1. Get Your API Key
+
+1. Visit [WhoisXML API](https://whoisxml.whoisapi.com/)
+2. Sign up for a free account
+3. Go to your dashboard and find your API key
+4. Add it to your `.env` file as `WHOIS_API_KEY`
+
+### 2. API Limits
+
+- **Free Tier**: 500 requests/month
+- **Paid Plans**: Higher limits available
+- The tool handles rate limiting and errors gracefully
+
+## 🤖 GitHub Actions Automation
+
+### Automated Hourly Checking
+
+The project includes a GitHub Actions workflow that automatically checks your domains every hour.
+
+### Setup Steps
+
+1. **Fork/Clone the Repository**
+2. **Configure GitHub Secrets**:
+   - Go to your repo → Settings → Secrets and variables → Actions
+   - Add these secrets:
+     - `WHOIS_API_KEY`: Your WhoisXML API key
+     - `SLACK_WEBHOOK_URL`: Your Slack webhook URL
+
+3. **Enable GitHub Actions**:
+   - The workflow file is already included: `.github/workflows/check-domains.yml`
+   - It runs automatically every hour at minute 0
+   - You can also trigger it manually from the Actions tab
+
+### Manual Workflow Trigger
+
+```bash
+# Go to your repo → Actions → "Automated Domain Availability Checker" → "Run workflow"
+```
+
+### Workflow Features
+
+- **Automated Runs**: Every hour using cron schedule
+- **Error Handling**: Failures are reported to Slack
+- **Environment Setup**: Python 3.11 with all dependencies
+- **Timeout Protection**: 10-minute safety timeout
+
+For detailed setup instructions, see [GITHUB_ACTIONS_SETUP.md](GITHUB_ACTIONS_SETUP.md).
 
 ## 📁 Project Structure
 
 ```
-├── .cursor/                    # Cursor AI configuration
-│   ├── rules/                  # TDD and code quality rules
-│   │   ├── development.mdc     # Core TDD methodology
-│   │   ├── tdd-workflow.mdc    # Quick TDD reference
-│   │   └── code-style.mdc      # Python code standards
-│   └── mcp.json                # TaskMaster AI configuration
-├── src/my_package/             # Main package
-│   ├── core.py                 # Business logic
-│   ├── cli.py                  # Command-line interface
-│   └── settings.py             # Configuration
-├── tests/                      # Test suite (pytest)
-├── .taskmaster/                # TaskMaster AI integration
-├── .env.example                # Environment variables template
-├── pyproject.toml              # Project configuration
-├── Makefile                    # Development commands
-└── README.md                   # You are here
+domain-tracker/
+├── .github/
+│   └── workflows/
+│       ├── check-domains.yml     # Automated domain checking
+│       └── python-ci.yml         # CI/CD pipeline
+├── src/
+│   └── domain_tracker/
+│       ├── __init__.py           # Package initialization
+│       ├── cli.py                # Command-line interface
+│       ├── core.py               # Core business logic
+│       ├── domain_management.py  # Domain file handling
+│       ├── settings.py           # Configuration management
+│       ├── slack_notifier.py     # Slack integration
+│       └── whois_client.py       # WhoisXML API client
+├── tests/                        # Comprehensive test suite
+├── domains.txt                   # Domains to monitor
+├── .env.example                  # Environment template
+├── pyproject.toml               # Project configuration
+├── Makefile                     # Development commands
+└── README.md                    # This file
 ```
 
-## 🔧 Customization Guide
+## 🧪 Development
 
-### 1. **Rename the Package**
+### Running Tests
+
 ```bash
-# Update package name throughout
-find . -name "*.py" -o -name "*.toml" -o -name "*.md" | xargs sed -i 's/my_package/your_package/g'
-mv src/my_package src/your_package
+# Run all tests
+make test
+
+# Run tests with coverage
+make test-cov
+
+# Run specific test
+pytest tests/test_cli.py -v
+
+# TDD watch mode
+pytest --looponfail
 ```
 
-### 2. **Add New Features (TDD Style)**
-```python
-# Always start with a test
-def test_new_feature():
-    result = new_feature("input")
-    assert result == "expected_output"
+### Code Quality
 
-# Then implement minimal code to pass
-def new_feature(input_data):
-    return "expected_output"
-```
-
-### 3. **Extend CLI Commands**
-```python
-# In src/my_package/cli.py
-@app.command()
-def new_command():
-    """Add your new CLI command."""
-    pass
-```
-
-### 4. **Configure Settings**
-```python
-# In src/my_package/settings.py
-class Settings(BaseSettings):
-    new_setting: str = "default_value"
-```
-
-## 🤖 TaskMaster AI Integration
-
-Enable structured task management for LLM-driven development:
-
-### 1. **Setup TaskMaster** (Optional)
 ```bash
-# 1. Copy environment template and add your API keys
-cp .env.example .env
-# Edit .env and add your actual API keys:
-# ANTHROPIC_API_KEY=your_actual_key_here
-# OPENAI_API_KEY=your_actual_key_here
-# PERPLEXITY_API_KEY=your_actual_key_here
+# Lint code
+make lint
 
-# 2. Install TaskMaster AI
-npm install -g task-master-ai
+# Format code
+make format
 
-# 3. In Cursor, activate the taskmaster-ai MCP server
-# The .cursor/mcp.json file will automatically use your .env variables
+# Type checking
+make type-check
+
+# Run all quality checks
+make lint format type-check test
 ```
 
-### 2. **Initialize TaskMaster**
+### Development Environment
+
 ```bash
-# In Cursor, ask: "Initialize taskmaster-ai in my project"
-# This will set up task management structure
+# Install development dependencies
+make install
+
+# Install pre-commit hooks
+pre-commit install
+
+# Clean up build artifacts
+make clean
 ```
 
-### 3. **Add Project Requirements**
+## 🔒 Security Considerations
+
+- **API Keys**: Never commit API keys to version control
+- **Webhook URLs**: Keep Slack webhook URLs secure
+- **Rate Limiting**: The tool respects API rate limits
+- **Error Handling**: Sensitive data is not logged in error messages
+
+## 📊 Monitoring & Troubleshooting
+
+### Common Issues
+
+**1. "Invalid API Key" Error**
 ```bash
-# Create .taskmaster/docs/prd.txt with your requirements
-# Then ask Cursor: "Parse my PRD and generate initial tasks"
+# Check your .env file has the correct API key
+cat .env | grep WHOIS_API_KEY
 ```
 
-### 4. **TDD + TaskMaster Workflow**
+**2. Slack Notifications Not Working**
 ```bash
-# Get next task to implement
-# Ask Cursor: "What's the next task I should work on?"
-
-# For each task, follow TDD:
-# 1. Write failing tests
-# 2. Implement minimal code
-# 3. Refactor
-# 4. Update task status
+# Test your webhook URL
+curl -X POST -H 'Content-type: application/json' \
+  --data '{"text":"Test message"}' \
+  $SLACK_WEBHOOK_URL
 ```
 
-## 📊 Code Quality Standards
+**3. GitHub Actions Failing**
+- Check that GitHub Secrets are configured correctly
+- Review the Actions log for specific error messages
+- Ensure domains.txt is not empty
 
-- **Test Coverage**: Minimum 50% (configured in pyproject.toml)
-- **Type Safety**: Full type hints required (mypy enforcement)
-- **Code Style**: Ruff formatting and linting
-- **TDD Compliance**: All features must start with tests
+### Debug Mode
 
-## 🔍 Monitoring & CI
+```bash
+# Enable detailed logging
+vibe check-domains --debug
+```
 
-- **GitHub Actions**: Automated testing, linting, and type checking on Python 3.13
-- **Pre-commit hooks**: Code quality checks before commits
-- **Coverage reporting**: HTML reports in `htmlcov/`
+### Manual Testing
 
-## 📚 Template Philosophy
+```bash
+# Test individual components
+python -c "from domain_tracker.settings import Settings; print(Settings())"
+python -c "from domain_tracker.domain_management import load_domains; print(load_domains())"
+python -c "from domain_tracker.whois_client import check_domain_availability; print(check_domain_availability('google.com'))"
+```
 
-This template is built around these principles:
+## 🤝 Contributing
 
-1. **🧪 Test-First Development**: Every feature starts with a failing test
-2. **🤖 LLM-Friendly**: Clean patterns that AI assistants can understand
-3. **⚡ Speed**: Fast development with modern tooling
-4. **🛡️ Quality**: Enforced standards through tooling and rules
-5. **📈 Scalable**: Structure that grows with your project
+1. **Fork the repository**
+2. **Create a feature branch**: `git checkout -b feature/your-feature`
+3. **Write tests first** (TDD approach)
+4. **Implement your changes**
+5. **Run tests**: `make test`
+6. **Submit a pull request**
 
-## 🎯 Next Steps
+### Development Workflow
 
-After creating your project:
+This project follows **Test-Driven Development (TDD)**:
+- Write failing tests first
+- Implement minimal code to pass
+- Refactor and improve
+- All tests must pass before merging
 
-1. **Follow the TDD workflow** - Cursor will guide you
-2. **Customize the package** name and structure
-3. **Add your business logic** with tests first
-4. **Optionally enable TaskMaster** for structured development
-5. **Set up CI/CD** for your repository
+## 📜 License
 
-## 📝 License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-This template is provided as-is for development use.
+## 🚀 Deployment Options
+
+### Personal Use
+- Run locally with cron job
+- Use GitHub Actions (recommended)
+
+### Team/Organization Use
+- Deploy to cloud server with scheduled tasks
+- Use container deployment (Docker)
+- Integrate with existing monitoring systems
+
+## 📞 Support
+
+- **Issues**: [GitHub Issues](https://github.com/darylkang/domain-tracker/issues)
+- **Documentation**: This README and inline code documentation
+- **API Documentation**: [WhoisXML API Docs](https://whoisxml.whoisapi.com/documentation)
 
 ---
 
-**🔴 Test First** • **🟢 Make It Work** • **🔄 Make It Better**
+**Happy Domain Hunting! 🎯**
 
-Built with ❤️ for modern Python development
+Made with ❤️ for domain enthusiasts and developers who want to automate their domain monitoring workflow.
