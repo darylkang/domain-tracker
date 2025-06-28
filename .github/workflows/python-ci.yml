@@ -10,6 +10,10 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+    env:
+      # Test environment variables for Pydantic Settings validation
+      WHOIS_API_KEY: "test-whois-api-key-for-ci"
+      SLACK_WEBHOOK_URL: "https://hooks.slack.com/services/test/ci/webhook"
     strategy:
       matrix:
         python-version: ['3.13']
