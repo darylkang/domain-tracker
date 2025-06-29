@@ -18,7 +18,7 @@ repos:
         name: Fix mixed line endings
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.6.9
+    rev: v0.12.1
     hooks:
       - id: ruff
         name: Lint Python code with Ruff
