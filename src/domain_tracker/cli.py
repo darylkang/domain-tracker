@@ -108,11 +108,11 @@ def main(
 @app.command("check")
 def check_single_domain_command(
     domain: Annotated[str, typer.Argument(help="Domain to check (e.g., example.com)")],
-    enhanced_slack: Annotated[
+    legacy_slack: Annotated[
         bool,
         typer.Option(
-            "--enhanced-slack",
-            help="Use enhanced Slack message format with detailed domain information",
+            "--legacy-slack",
+            help="Use legacy simple Slack message format instead of enhanced format",
         ),
     ] = False,
 ) -> None:
@@ -122,7 +122,7 @@ def check_single_domain_command(
 
         print(f"🔍 Checking {domain}...")
 
-        if enhanced_slack:
+        if not legacy_slack:
             # Use enhanced domain info for rich Slack messages
             domain_info = get_enhanced_domain_info(domain, settings)
 
@@ -178,11 +178,11 @@ def check_domains(
             help="Send Slack alerts for all domains, regardless of availability",
         ),
     ] = False,
-    enhanced_slack: Annotated[
+    legacy_slack: Annotated[
         bool,
         typer.Option(
-            "--enhanced-slack",
-            help="Use enhanced Slack message format with detailed domain information",
+            "--legacy-slack",
+            help="Use legacy simple Slack message format instead of enhanced format",
         ),
     ] = False,
     debug: Annotated[
@@ -214,7 +214,7 @@ def check_domains(
             try:
                 print(f"  Checking {domain}...", end=" ")
 
-                if enhanced_slack:
+                if not legacy_slack:
                     # Use enhanced domain info for rich Slack messages
                     domain_info = get_enhanced_domain_info(domain, settings)
                     domain_infos.append(domain_info)
@@ -261,7 +261,7 @@ def check_domains(
                 print(f"❌ Error checking {domain}: {e}")
 
         # Send enhanced Slack message summary if using enhanced mode
-        if enhanced_slack and domain_infos:
+        if not legacy_slack and domain_infos:
             # Only send if there are available domains, errors, or notify_all is enabled
             should_notify = (
                 any(info.is_available for info in domain_infos)

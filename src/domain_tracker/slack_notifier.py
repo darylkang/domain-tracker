@@ -162,7 +162,7 @@ def format_enhanced_slack_message(
     """
     # Header section
     header_lines = [
-        "🔍 **Domain Check Summary**",
+        "🔍 *Domain Check Summary*",
         f"🗓️ {_format_ny_datetime(check_time)}",
         "👤 Triggered by: Scheduled hourly check",
         "",
@@ -177,7 +177,7 @@ def format_enhanced_slack_message(
         status = _format_domain_status(domain_info)
 
         # Domain header
-        domain_lines.append(f"{icon} **{domain_info.domain_name}**")
+        domain_lines.append(f"{icon} *{domain_info.domain_name}*")
         domain_lines.append(f"• Status: {status}")
 
         # Add metadata only if present
@@ -217,7 +217,7 @@ def format_enhanced_slack_message(
     error_count = sum(1 for d in domain_infos if d.has_error)
 
     summary_lines = [
-        "📊 **Summary:**",
+        "📊 *Summary:*",
         f"• {available_count} available • {unavailable_count} unavailable • {error_count} errors",
     ]
 
@@ -239,7 +239,7 @@ def format_domain_error_alert(domain_name: str, error_message: str) -> str:
     """
     return "\n".join(
         [
-            f"🚨 **Domain Check Failed for: {domain_name}**",
+            f"🚨 *Domain Check Failed for: {domain_name}*",
             f"❗ Error: {error_message}",
             "🔁 Will retry at next scheduled interval",
             "🔔 <@channel> — Manual check may be needed",
