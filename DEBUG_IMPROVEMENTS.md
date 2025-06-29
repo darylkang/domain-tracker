@@ -50,13 +50,13 @@ Added `--debug` flag to both CLI commands:
 # Debug single domain check
 vibe check spectre.cx --debug
 
-# Debug batch domain checking  
+# Debug batch domain checking
 vibe check-domains --debug
 ```
 
 **Debug Output Includes:**
 - Full raw API response from WhoisXML Full WHOIS API
-- Request URL with parameters 
+- Request URL with parameters
 - HTTP status codes
 - Detailed status parsing trace
 - Registry data extraction
@@ -209,9 +209,9 @@ With Full WHOIS API, you can now:
 ## Summary
 
 ✅ **Problem Solved**: False positives eliminated with comprehensive status detection
-✅ **API Upgraded**: Full WHOIS API provides 10x more detailed information  
+✅ **API Upgraded**: Full WHOIS API provides 10x more detailed information
 ✅ **Debug Enhanced**: Complete visibility into API responses and status parsing
 ✅ **Tests Updated**: 129 tests passing with improved coverage
 ✅ **CI Ready**: All formatting, linting, and quality checks passing
 
-The domain tracker now provides accurate, detailed domain status information that eliminates false positives and enables informed domain acquisition decisions. 
+The domain tracker now provides accurate, detailed domain status information that eliminates false positives and enables informed domain acquisition decisions.

@@ -574,26 +574,34 @@ def get_enhanced_domain_info(
         registrar_name = whois_record.get("registrarName") or registry_data.get(
             "registrarName"
         )
-        
+
         # Extract registrar contact information if available
         registrar_address = None
-        registrar_phone = None  
+        registrar_phone = None
         registrar_fax = None
-        
+
         # Try to get registrar contact info from various places in the response
-        registrar_info = whois_record.get("registrar", {}) or registry_data.get("registrar", {})
+        registrar_info = whois_record.get("registrar", {}) or registry_data.get(
+            "registrar", {}
+        )
         if registrar_info:
             registrar_address = registrar_info.get("streetAddress")
             registrar_phone = registrar_info.get("telephone")
             registrar_fax = registrar_info.get("fax")
-        
+
         # Alternative locations for registrar contact info
         if not registrar_address:
-            registrar_address = whois_record.get("registrarAddress") or registry_data.get("registrarAddress")
+            registrar_address = whois_record.get(
+                "registrarAddress"
+            ) or registry_data.get("registrarAddress")
         if not registrar_phone:
-            registrar_phone = whois_record.get("registrarPhone") or registry_data.get("registrarPhone")
+            registrar_phone = whois_record.get("registrarPhone") or registry_data.get(
+                "registrarPhone"
+            )
         if not registrar_fax:
-            registrar_fax = whois_record.get("registrarFax") or registry_data.get("registrarFax")
+            registrar_fax = whois_record.get("registrarFax") or registry_data.get(
+                "registrarFax"
+            )
 
         # Extract name servers
         name_servers = []

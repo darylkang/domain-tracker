@@ -3,23 +3,57 @@ repos:
     rev: v5.0.0
     hooks:
       - id: trailing-whitespace
+        name: Remove trailing whitespace
       - id: end-of-file-fixer
+        name: Fix end of files
       - id: check-yaml
+        name: Check YAML files
       - id: check-toml
-      - id: check-json
+        name: Check TOML files
       - id: check-merge-conflict
-      - id: check-added-large-files
+        name: Check for merge conflicts
+      - id: debug-statements
+        name: Check for debug statements
+      - id: mixed-line-ending
+        name: Fix mixed line endings
+
+  - repo: https://github.com/psf/black
+    rev: 24.4.2
+    hooks:
+      - id: black
+        name: Format Python code with Black
+        language_version: python3
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.8.4
+    rev: v0.6.9
     hooks:
       - id: ruff
-        args: [--fix]
+        name: Lint Python code with Ruff
+        args: [--fix, --exit-non-zero-on-fix]
       - id: ruff-format
+        name: Format Python code with Ruff
 
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.13.0
     hooks:
       - id: mypy
-        additional_dependencies: [pydantic, typer, pytest]
-        args: [--install-types, --non-interactive] 
+        name: Type check with MyPy
+        additional_dependencies: [types-requests]
+        exclude: ^tests/
+
+# Global settings
+default_language_version:
+  python: python3.13
+
+# CI settings
+ci:
+  autofix_commit_msg: |
+    [pre-commit.ci] auto fixes from pre-commit hooks
+
+    for more information, see https://pre-commit.ci
+  autofix_prs: true
+  autoupdate_branch: ''
+  autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
+  autoupdate_schedule: weekly
+  skip: []
+  submodules: false

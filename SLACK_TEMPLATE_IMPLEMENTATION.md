@@ -10,23 +10,23 @@ Successfully implemented the **exact Slack message template** as specified, with
 
 ### **User's Requested Format:**
 ```
-:mag_right: *Domain Check Results*  
-📅 *Checked at:* `11:32 PM EDT • Jun 28, 2025`  
-🔁 *Triggered by:* Manual CLI Check  
+:mag_right: *Domain Check Results*
+📅 *Checked at:* `11:32 PM EDT • Jun 28, 2025`
+🔁 *Triggered by:* Manual CLI Check
 
-━━━━━━━━━━━━━━━━━━━━━━━  
-:x: *<http://spectre.cx|spectre.cx>* — *Unavailable*  
-• *Status:* `pendingDelete`, `serverHold`  
-• *Registrar:* CentralNic Ltd  
-  🏢 35–39 Moorgate, London EC2R 6AR  
-  📞 +44 (0)20 33 88 0600  
-  📠 +44 (0)20 33 88 0601  
-📅 *Expiry:* Jun 2, 2025 *(26 days ago)*  
-🆕 *Created:* Jun 2, 2024  
-━━━━━━━━━━━━━━━━━━━━━━━  
-📊 *Summary*  
-:white_check_mark: *Available:* 0  
-:x: *Unavailable:* 1  
+━━━━━━━━━━━━━━━━━━━━━━━
+:x: *<http://spectre.cx|spectre.cx>* — *Unavailable*
+• *Status:* `pendingDelete`, `serverHold`
+• *Registrar:* CentralNic Ltd
+  🏢 35–39 Moorgate, London EC2R 6AR
+  📞 +44 (0)20 33 88 0600
+  📠 +44 (0)20 33 88 0601
+📅 *Expiry:* Jun 2, 2025 *(26 days ago)*
+🆕 *Created:* Jun 2, 2024
+━━━━━━━━━━━━━━━━━━━━━━━
+📊 *Summary*
+:white_check_mark: *Available:* 0
+:x: *Unavailable:* 1
 :warning: *Errors:* 0
 ```
 
@@ -64,7 +64,7 @@ Successfully implemented the **exact Slack message template** as specified, with
 - **Proper emoji rendering** in Slack webhook format
 - **Clean spacing** and aligned formatting
 
-### **2. Registrar Section** ✅  
+### **2. Registrar Section** ✅
 - **Multi-line contact info** properly indented under registrar name
 - **Graceful omission** of missing address/phone/fax fields
 - **Contact icons** (🏢 📞 📠) for visual clarity
@@ -76,7 +76,7 @@ Successfully implemented the **exact Slack message template** as specified, with
 
 ### **4. Multi-Domain Support** ✅
 - **Batch processing**: `vibe check domain1 domain2 domain3`
-- **Unified message** with all domains in single Slack notification  
+- **Unified message** with all domains in single Slack notification
 - **Domain separation** with thick Unicode lines
 - **Aggregated summary** with accurate counts
 
@@ -100,7 +100,7 @@ Successfully implemented the **exact Slack message template** as specified, with
 
 ## 📱 **CLI Multi-Domain Examples**
 
-### **Single Domain** 
+### **Single Domain**
 ```bash
 vibe check spectre.cx
 ```
@@ -122,7 +122,7 @@ vibe check spectre.cx --debug
 ## 🧪 **Test Results**
 
 - **✅ All enhanced Slack message tests passing**
-- **✅ Multi-domain CLI functionality verified**  
+- **✅ Multi-domain CLI functionality verified**
 - **✅ @channel notifications working correctly**
 - **✅ Graceful field omission tested**
 - **✅ Relative time calculations accurate**
@@ -139,7 +139,7 @@ vibe check spectre.cx --debug
 - **Actionable alerts** with @channel for available domains and errors
 - **Professional formatting** suitable for business Slack channels
 
-### **Developer Experience** 
+### **Developer Experience**
 - **Backward compatible** CLI interface
 - **Robust error handling** with graceful field omission
 - **Comprehensive test coverage** for reliability
@@ -158,13 +158,13 @@ vibe check spectre.cx --debug
 **All 7 key requirements fulfilled exactly as specified:**
 
 1. ✅ **Emoji & formatting render correctly in Slack**
-2. ✅ **Registrar section with indented contact details**  
+2. ✅ **Registrar section with indented contact details**
 3. ✅ **Relative time formatting with human-readable notes**
 4. ✅ **Multi-domain support for batch checking**
 5. ✅ **Clear trigger identification (manual vs scheduled)**
-6. ✅ **@channel alerts for available domains and errors** 
+6. ✅ **@channel alerts for available domains and errors**
 7. ✅ **Visual polish with clean spacing and alignment**
 
 The domain tracker now provides a **professional, actionable Slack experience** that perfectly matches your exact specifications while supporting both single and batch domain operations.
 
-**Ready for production use!** 🚀 
+**Ready for production use!** 🚀

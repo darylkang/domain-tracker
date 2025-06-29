@@ -144,10 +144,10 @@ Modify the cron expression in `.github/workflows/check-domains.yml`:
 schedule:
   # Every 30 minutes
   - cron: '*/30 * * * *'
-  
+
   # Daily at 9 AM UTC
   - cron: '0 9 * * *'
-  
+
   # Business hours only (9 AM - 5 PM UTC, weekdays)
   - cron: '0 9-17 * * 1-5'
 ```
@@ -173,4 +173,4 @@ The workflow reads from `domains.txt` in the repository root. Update this file t
 
 At hourly checking, you'll use approximately:
 - **GitHub Actions**: ~30 minutes/month (well within free tier)
-- **WhoisXML API**: ~720 API calls/month per domain 
+- **WhoisXML API**: ~720 API calls/month per domain

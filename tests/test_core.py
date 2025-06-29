@@ -193,16 +193,20 @@ class TestUtilityFunctions:
     def test_format_domain_summary_with_available_domains(self) -> None:
         """Test formatting domain summary with available domains."""
         summary = format_domain_summary(3, ["example.com", "test.org"])
-        assert "Checked 3 domains" in summary
-        assert "Found 2 available domains" in summary
-        assert "example.com, test.org" in summary
+        assert "Total domains checked: 3" in summary
+        assert "✅ Available domains: 2" in summary
+        assert "❌ Unavailable domains: 1" in summary
+        assert "🎯 Available domains:" in summary
+        assert "• example.com" in summary
+        assert "• test.org" in summary
 
     def test_format_domain_summary_no_available_domains(self) -> None:
         """Test formatting domain summary with no available domains."""
         summary = format_domain_summary(2, [])
-        assert "Checked 2 domains" in summary
-        assert "Found 0 available domains" in summary
-        assert "No domains available" in summary
+        assert "Total domains checked: 2" in summary
+        assert "✅ Available domains: 0" in summary
+        assert "❌ Unavailable domains: 2" in summary
+        assert "ℹ️  No domains available at this time" in summary
 
     def test_get_domain_status_display_available(self) -> None:
         """Test domain status display for available domain."""
@@ -228,8 +232,7 @@ class TestUtilityFunctions:
             problematic_statuses=["pendingDelete", "serverHold"],
         )
         display = get_domain_status_display(domain_info)
-        assert "⚠️ Problematic status" in display
-        assert "pendingDelete, serverHold" in display
+        assert "⚠️  Problematic (pendingdelete, hold)" == display
 
     def test_get_domain_status_display_error(self) -> None:
         """Test domain status display for domain with error."""

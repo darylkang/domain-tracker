@@ -331,7 +331,9 @@ class TestEnhancedSlackMessages:
         assert "`pendingDelete`" in message  # Status codes in backticks
         assert "`serverHold`" in message  # Status codes in backticks
         assert "━━━━━━━━━━━━━━━━━━━━━━━" in message  # New separator
-        assert "<http://pending-example.com|pending-example.com>" in message  # Clickable domain link
+        assert (
+            "<http://pending-example.com|pending-example.com>" in message
+        )  # Clickable domain link
         assert "📊 *Summary*" in message  # New summary format
 
     def test_format_enhanced_slack_message_multiple_domains(self) -> None:
@@ -368,9 +370,15 @@ class TestEnhancedSlackMessages:
         assert "*Unavailable*" in message  # Unavailable status
         assert "Namecheap" in message  # Available domain registrar
         assert "GoDaddy" in message  # Unavailable domain registrar
-        assert "━━━━━━━━━━━━━━━━━━━━━━━" in message  # Multiple separators for multiple domains
-        assert "<http://available-example.com|available-example.com>" in message  # Clickable links
-        assert "<http://unavailable-example.com|unavailable-example.com>" in message  # Clickable links
+        assert (
+            "━━━━━━━━━━━━━━━━━━━━━━━" in message
+        )  # Multiple separators for multiple domains
+        assert (
+            "<http://available-example.com|available-example.com>" in message
+        )  # Clickable links
+        assert (
+            "<http://unavailable-example.com|unavailable-example.com>" in message
+        )  # Clickable links
         assert "📊 *Summary*" in message  # Summary section
         assert "*Available:* 1" in message  # Correct count
         assert "*Unavailable:* 1" in message  # Correct count
@@ -398,7 +406,9 @@ class TestEnhancedSlackMessages:
         assert "<!channel>" in message  # Priority notification for system error
         assert "*System error requires attention!*" in message  # Error alert message
         assert "━━━━━━━━━━━━━━━━━━━━━━━" in message  # New separator
-        assert "<http://error-domain.com|error-domain.com>" in message  # Clickable domain link
+        assert (
+            "<http://error-domain.com|error-domain.com>" in message
+        )  # Clickable domain link
         assert "📊 *Summary*" in message  # New summary format
 
     def test_format_enhanced_slack_message_handles_missing_dates(self) -> None:
@@ -456,7 +466,9 @@ class TestEnhancedSlackMessages:
         # ASSERT: Should handle partial registrant info gracefully
         assert "partial-info.com" in message
         assert "━━━━━━━━━━━━━━━━━━━━━━━" in message  # Separator present
-        assert "<http://partial-info.com|partial-info.com>" in message  # Clickable domain link
+        assert (
+            "<http://partial-info.com|partial-info.com>" in message
+        )  # Clickable domain link
         # Should NOT show missing fields since we don't include registrant info in new format
         assert "*Registrar:*" not in message
         assert "📅 *Expiry:*" not in message

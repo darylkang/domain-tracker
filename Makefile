@@ -61,7 +61,7 @@ lint: ## Lint code with ruff
 	@echo "🔍 Linting code..."
 	hatch run lint
 
-format: ## Format code with ruff  
+format: ## Format code with ruff
 	@echo "🎨 Formatting code..."
 	hatch run format
 

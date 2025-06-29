@@ -78,4 +78,4 @@ The rules are designed to be generic and reusable across different project types
 
 ---
 
-**Remember: Every feature starts with a failing test!** 🔴 → 🟢 → 🔄 
+**Remember: Every feature starts with a failing test!** 🔴 → 🟢 → 🔄

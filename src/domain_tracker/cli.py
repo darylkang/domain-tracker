@@ -14,6 +14,7 @@ import typer
 
 from domain_tracker.core import (
     DomainCheckService,
+    format_domain_check_progress,
     format_domain_summary,
     get_domain_status_display,
     get_legacy_domain_message,
@@ -69,7 +70,10 @@ def main(
 
 @app.command("check")
 def check_single_domain_command(
-    domains: Annotated[list[str], typer.Argument(help="Domains to check (e.g., example.com anotherdomain.org)")],
+    domains: Annotated[
+        list[str],
+        typer.Argument(help="Domains to check (e.g., example.com anotherdomain.org)"),
+    ],
     legacy_slack: Annotated[
         bool,
         typer.Option(
@@ -107,7 +111,9 @@ def check_single_domain_command(
                 print(status_display)
 
                 # Always send enhanced Slack notification
-                service.send_slack_notification([domain_info], trigger_type="manual", notify_all=True)
+                service.send_slack_notification(
+                    [domain_info], trigger_type="manual", notify_all=True
+                )
             else:
                 # Use legacy simple format
                 domain_info = service.check_single_domain(
@@ -122,7 +128,7 @@ def check_single_domain_command(
         except Exception as e:
             print(f"❌ Error checking domain {domain}: {e}")
             raise typer.Exit(code=1) from e
-    
+
     else:
         # Handle multiple domains case
         print(f"🔍 Checking {len(domains)} domains...")
@@ -138,10 +144,14 @@ def check_single_domain_command(
                     print("⚠️  No domains found to check.")
                     return
 
-                # Display progress for each domain
+                # Display progress for each domain with consistent formatting
+                print("")  # Add spacing before results
                 for domain_info in result.domain_infos:
                     status_display = get_domain_status_display(domain_info)
-                    print(f"  {domain_info.domain_name}... {status_display}")
+                    formatted_line = format_domain_check_progress(
+                        domain_info.domain_name, status_display
+                    )
+                    print(formatted_line)
 
                 # Always send enhanced Slack notification for batch check
                 service.send_slack_notification(
@@ -159,10 +169,15 @@ def check_single_domain_command(
                         domain, use_enhanced_format=False, debug=debug
                     )
                     message = get_legacy_domain_message(
-                        domain, domain_info.is_available, domain_info.problematic_statuses
+                        domain,
+                        domain_info.is_available,
+                        domain_info.problematic_statuses,
                     )
                     status_display = get_domain_status_display(domain_info)
-                    print(f"  {domain}... {status_display}")
+                    formatted_line = format_domain_check_progress(
+                        domain, status_display
+                    )
+                    print(formatted_line)
                     # Send individual alerts for legacy mode
                     _send_slack_alert_safely(service, message)
 
@@ -217,10 +232,14 @@ def check_domains(
                 print("⚠️  No domains found to check.")
                 return
 
-            # Display progress for each domain
+            # Display progress for each domain with consistent formatting
+            print("")  # Add spacing before results
             for domain_info in result.domain_infos:
                 status_display = get_domain_status_display(domain_info)
-                print(f"  Checking {domain_info.domain_name}... {status_display}")
+                formatted_line = format_domain_check_progress(
+                    domain_info.domain_name, status_display
+                )
+                print(formatted_line)
 
             # Send enhanced Slack notification
             service.send_slack_notification(
@@ -251,7 +270,10 @@ def check_domains(
                 )
 
                 status_display = get_domain_status_display(domain_info)
-                print(f"  Checking {domain_info.domain_name}... {status_display}")
+                formatted_line = format_domain_check_progress(
+                    domain_info.domain_name, status_display
+                )
+                print(formatted_line)
 
                 # Send individual alerts for legacy mode
                 if domain_info.is_available:

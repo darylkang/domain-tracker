@@ -223,7 +223,7 @@ class TestCLIDomainsCommand:
         # ASSERT: Should print summary with no available domains
         assert result.exit_code == 0
         assert "No domains available" in result.stdout
-        assert "Checked 2 domains" in result.stdout
+        assert "Total domains checked: 2" in result.stdout
 
     @patch("domain_tracker.cli._load_settings")
     @patch("domain_tracker.cli.DomainCheckService")
@@ -351,8 +351,10 @@ class TestCLIDomainsCommand:
 
         # ASSERT: Should display progress for each domain
         assert result.exit_code == 0
-        assert "Checking test1.com" in result.stdout
-        assert "Checking test2.com" in result.stdout
+        assert "test1.com" in result.stdout
+        assert "test2.com" in result.stdout
+        assert "Available" in result.stdout
+        assert "Unavailable" in result.stdout
         assert "Available" in result.stdout
         assert "Unavailable" in result.stdout
 
@@ -530,8 +532,7 @@ class TestCLISingleDomainCheck:
         # ASSERT: Should show problematic status
         assert result.exit_code == 0
         assert "problematic.com" in result.stdout
-        assert "Problematic status" in result.stdout
-        assert "pendingDelete" in result.stdout
+        assert "⚠️  Problematic (pendingdelete)" in result.stdout
 
     @patch("domain_tracker.cli._load_settings")
     @patch("domain_tracker.cli.DomainCheckService")
@@ -559,9 +560,7 @@ class TestCLISingleDomainCheck:
         # ASSERT: Should show all problematic statuses
         assert result.exit_code == 0
         assert "multiple-issues.com" in result.stdout
-        assert "Problematic status" in result.stdout
-        assert "pendingDelete" in result.stdout
-        assert "serverHold" in result.stdout
+        assert "⚠️  Problematic (pendingdelete, hold)" in result.stdout
 
     @patch("domain_tracker.cli._load_settings")
     @patch("domain_tracker.cli.DomainCheckService")
@@ -684,9 +683,9 @@ class TestCLIBulkProblematicStatuses:
         assert result.exit_code == 0
         assert "available.com" in result.stdout and "Available" in result.stdout
         assert (
-            "problematic.com" in result.stdout and "Problematic status" in result.stdout
+            "problematic.com" in result.stdout
+            and "⚠️  Problematic (pendingdelete)" in result.stdout
         )
-        assert "pendingDelete" in result.stdout
         assert "unavailable.com" in result.stdout and "Unavailable" in result.stdout
 
     @patch("domain_tracker.cli._load_settings")

@@ -137,7 +137,7 @@ class DomainCheckService:
             # Determine if we should send notification
             has_available = any(info.is_available for info in domain_infos)
             has_errors = any(info.has_error for info in domain_infos)
-            
+
             should_notify = (
                 has_available
                 or has_errors  # Always notify for errors (system issues)
@@ -181,30 +181,70 @@ def get_legacy_domain_message(
 
 
 def format_domain_summary(total_domains: int, available_domains: list[str]) -> str:
-    """Format a summary of domain checking results."""
+    """Format a summary of domain checking results with improved formatting."""
     available_count = len(available_domains)
+    unavailable_count = total_domains - available_count
 
+    # Header with separator
     summary_lines = [
-        "📊 Summary:",
-        f"  Checked {total_domains} domains",
-        f"  Found {available_count} available domains",
+        "━" * 50,
+        "📊 Domain Check Summary",
+        "━" * 50,
     ]
 
-    if available_count == 0:
-        summary_lines.append("  No domains available at this time.")
-    else:
-        summary_lines.append(f"  Available domains: {', '.join(available_domains)}")
+    # Statistics with consistent formatting
+    summary_lines.extend(
+        [
+            f"Total domains checked: {total_domains}",
+            f"✅ Available domains: {available_count}",
+            f"❌ Unavailable domains: {unavailable_count}",
+        ]
+    )
 
+    # Available domains list if any
+    if available_count > 0:
+        summary_lines.append("")
+        summary_lines.append("🎯 Available domains:")
+        for domain in available_domains:
+            summary_lines.append(f"  • {domain}")
+    else:
+        summary_lines.append("")
+        summary_lines.append("ℹ️  No domains available at this time")
+
+    summary_lines.append("━" * 50)
     return "\n".join(summary_lines)
 
 
 def get_domain_status_display(domain_info: DomainInfo) -> str:
-    """Get a CLI-friendly display string for domain status."""
+    """Get a CLI-friendly display string for domain status with consistent formatting."""
     if domain_info.has_error:
         return f"❌ Error: {domain_info.error_message}"
     elif domain_info.is_available:
         return "✅ Available"
     elif domain_info.problematic_statuses:
-        return f"⚠️ Problematic status: {', '.join(domain_info.problematic_statuses)}"
+        # Clean up status display for better readability
+        statuses = [
+            status.lower().replace("client", "").replace("server", "")
+            for status in domain_info.problematic_statuses
+        ]
+        status_str = ", ".join(statuses)
+        return f"⚠️  Problematic ({status_str})"
     else:
         return "❌ Unavailable"
+
+
+def format_domain_check_progress(domain_name: str, status_display: str) -> str:
+    """Format a single domain check progress line with consistent spacing."""
+    # Ensure consistent formatting with proper alignment
+    max_domain_width = 30  # Maximum width for domain name column
+
+    if len(domain_name) > max_domain_width:
+        # Truncate long domain names
+        domain_display = domain_name[: max_domain_width - 3] + "..."
+    else:
+        domain_display = domain_name
+
+    # Pad domain name for consistent alignment
+    domain_padded = domain_display.ljust(max_domain_width)
+
+    return f"  {domain_padded} → {status_display}"

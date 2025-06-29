@@ -108,7 +108,7 @@ Create a `.env` file in the project root with the following variables:
 # Get your free API key at: https://whoisxml.whoisapi.com/
 WHOIS_API_KEY=at_1234567890abcdef...
 
-# Slack Webhook URL (Required) 
+# Slack Webhook URL (Required)
 # Create a webhook at: https://api.slack.com/messaging/webhooks
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX
 ```

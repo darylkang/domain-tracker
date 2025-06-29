@@ -1,6 +1,6 @@
 ---
-description: 
-globs: 
+description:
+globs:
 alwaysApply: false
 ---
 ---
@@ -17,7 +17,7 @@ autoAttach: true
 - Prefer explicit over implicit behavior
 
 ## Code Organization
-- Keep functions focused and single-purpose  
+- Keep functions focused and single-purpose
 - Use descriptive variable and function names
 - Add docstrings for public methods and classes
 - Group related functionality into logical modules

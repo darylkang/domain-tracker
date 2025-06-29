@@ -1,6 +1,6 @@
 ---
-description: 
-globs: 
+description:
+globs:
 alwaysApply: false
 ---
 # Test-Driven Development (TDD) Rules
@@ -34,10 +34,10 @@ def test_feature_description():
     # ARRANGE: Set up test data and environment
     input_data = "test input"
     expected_result = "expected output"
-    
+
     # ACT: Execute the code under test
     actual_result = function_under_test(input_data)
-    
+
     # ASSERT: Verify the results
     assert actual_result == expected_result
 ```
@@ -108,7 +108,7 @@ def test_should_calculate_compound_interest():
     rate = 0.05
     time = 2
     expected = 1102.5
-    
+
     # Act & Assert
     result = calculate_compound_interest(principal, rate, time)
     assert result == expected
@@ -127,10 +127,10 @@ from unittest.mock import Mock, patch
 def test_api_client_handles_network_error():
     with patch('requests.get') as mock_get:
         mock_get.side_effect = requests.ConnectionError("Network error")
-        
+
         client = ApiClient()
         result = client.fetch_data()
-        
+
         assert result is None
 ```
 
@@ -179,7 +179,7 @@ def test_api_client_handles_network_error():
 ```python
 def format_currency(amount: float, currency: str = "USD") -> str:
     """Format amount as currency string.
-    
+
     Examples:
         >>> format_currency(123.45)
         '$123.45'
@@ -193,7 +193,7 @@ def format_currency(amount: float, currency: str = "USD") -> str:
 ```python
 class TaskManager:
     """Manages a collection of tasks.
-    
+
     Usage:
         >>> manager = TaskManager()
         >>> manager.add_task("Write tests")

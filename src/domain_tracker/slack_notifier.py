@@ -7,7 +7,7 @@ Sends alerts when domains become available or experience issues.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import requests
@@ -55,27 +55,26 @@ def send_slack_alert(message: str, settings: Settings | None = None) -> None:
         logging.error(f"Failed to send Slack alert due to unexpected error: {e}")
 
 
-
 def _get_relative_time_text(expiry_date: datetime | None) -> str:
     """
     Get relative time text for expiry dates.
-    
+
     Args:
         expiry_date: The expiration date
-        
+
     Returns:
         Relative time string like "(26 days ago)" or "(in 7 days)" or empty string
     """
     if not expiry_date:
         return ""
-    
-    now = datetime.now(timezone.utc)
+
+    now = datetime.now(UTC)
     if expiry_date.tzinfo is None:
-        expiry_date = expiry_date.replace(tzinfo=timezone.utc)
-    
+        expiry_date = expiry_date.replace(tzinfo=UTC)
+
     delta = expiry_date - now
     days = delta.days
-    
+
     if days < 0:
         return f"*({abs(days)} days ago)*"
     elif days == 0:
@@ -89,10 +88,10 @@ def _get_relative_time_text(expiry_date: datetime | None) -> str:
 def _format_domain_link(domain_name: str) -> str:
     """
     Format domain as a clickable Slack link.
-    
+
     Args:
         domain_name: The domain name
-        
+
     Returns:
         Formatted Slack link
     """
@@ -102,18 +101,18 @@ def _format_domain_link(domain_name: str) -> str:
 def _format_registrar_details(domain_info: DomainInfo) -> list[str]:
     """
     Format registrar information with contact details.
-    
+
     Args:
         domain_info: Domain information
-        
+
     Returns:
         List of formatted registrar detail lines
     """
     lines = []
-    
+
     if domain_info.registrar_name:
         lines.append(f"• *Registrar:* {domain_info.registrar_name}")
-        
+
         # Add registrar contact details if available (indented)
         if domain_info.registrar_address:
             lines.append(f"  🏢 {domain_info.registrar_address}")
@@ -121,23 +120,23 @@ def _format_registrar_details(domain_info: DomainInfo) -> list[str]:
             lines.append(f"  📞 {domain_info.registrar_phone}")
         if domain_info.registrar_fax:
             lines.append(f"  📠 {domain_info.registrar_fax}")
-    
+
     return lines
 
 
 def _format_domain_section(domain_info: DomainInfo) -> list[str]:
     """
     Format a single domain's information section.
-    
+
     Args:
         domain_info: Domain information
-        
+
     Returns:
         List of formatted lines for this domain
     """
     lines = []
     domain_link = _format_domain_link(domain_info.domain_name)
-    
+
     # Determine status and icon
     if domain_info.has_error:
         icon = ":warning:"
@@ -145,30 +144,32 @@ def _format_domain_section(domain_info: DomainInfo) -> list[str]:
         lines.append(f"{icon} *{domain_link}* — {status}")
         lines.append("🔔 <!channel> — *System error requires attention!*")
         lines.append(f"• *Reason:* {domain_info.error_message}")
-        
+
     elif domain_info.is_available:
         icon = ":white_check_mark:"
         status = "*Available*"
         lines.append(f"{icon} *{domain_link}* — {status}")
         lines.append("🔔 <!channel> — *Action needed!*")
-        lines.append(f"• *Status:* `available`")
-        
+        lines.append("• *Status:* `available`")
+
     else:
         icon = ":x:"
         status = "*Unavailable*"
         lines.append(f"{icon} *{domain_link}* — {status}")
-        
+
         # Format status codes
         if domain_info.problematic_statuses:
-            status_codes = ", ".join(f"`{status}`" for status in domain_info.problematic_statuses)
+            status_codes = ", ".join(
+                f"`{status}`" for status in domain_info.problematic_statuses
+            )
             lines.append(f"• *Status:* {status_codes}")
         else:
-            lines.append(f"• *Status:* `unavailable`")
-    
+            lines.append("• *Status:* `unavailable`")
+
     # Add registrar details
     registrar_lines = _format_registrar_details(domain_info)
     lines.extend(registrar_lines)
-    
+
     # Add expiry date with relative time
     if domain_info.expiration_date:
         expiry_formatted = domain_info.expiration_date.strftime("%b %-d, %Y")
@@ -177,12 +178,12 @@ def _format_domain_section(domain_info: DomainInfo) -> list[str]:
             lines.append(f"📅 *Expiry:* `{expiry_formatted}` {relative_time}")
         else:
             lines.append(f"📅 *Expiry:* `{expiry_formatted}`")
-    
+
     # Add creation date
     if domain_info.creation_date:
         created_formatted = domain_info.creation_date.strftime("%b %-d, %Y")
         lines.append(f"🆕 *Created:* `{created_formatted}`")
-    
+
     return lines
 
 
@@ -206,40 +207,46 @@ def format_enhanced_slack_message(
         return ":warning: No domains to check"
 
     lines = []
-    
+
     # Header section
     lines.append(":mag_right: *Domain Check Results*")
-    
+
     # Format timestamp in New York timezone
     ny_tz = ZoneInfo("America/New_York")
     check_time_ny = check_time.astimezone(ny_tz)
-    
+
     # Determine timezone abbreviation
     tz_name = "EST" if check_time_ny.dst() == timedelta(0) else "EDT"
     timestamp = check_time_ny.strftime(f"%-I:%M %p {tz_name} • %b %-d, %Y")
-    
+
     lines.append(f"📅 *Checked at:* `{timestamp}`")
-    
+
     # Trigger type
-    trigger_text = "Manual CLI Check" if trigger_type == "manual" else "Scheduled hourly check"
+    trigger_text = (
+        "Manual CLI Check" if trigger_type == "manual" else "Scheduled hourly check"
+    )
     lines.append(f"🔁 *Triggered by:* {trigger_text}")
     lines.append("")
-    
+
     # Domain sections with separators
     separator = "━━━━━━━━━━━━━━━━━━━━━━━"
-    
+
     for i, domain_info in enumerate(domain_infos):
         lines.append(separator)
         domain_lines = _format_domain_section(domain_info)
         lines.extend(domain_lines)
-    
+
     lines.append(separator)
-    
+
     # Summary section
-    available_count = sum(1 for info in domain_infos if info.is_available and not info.has_error)
-    unavailable_count = sum(1 for info in domain_infos if not info.is_available and not info.has_error)
+    available_count = sum(
+        1 for info in domain_infos if info.is_available and not info.has_error
+    )
+    unavailable_count = sum(
+        1 for info in domain_infos if not info.is_available and not info.has_error
+    )
     error_count = sum(1 for info in domain_infos if info.has_error)
-    
+
     lines.append("📊 *Summary*")
     lines.append(f":white_check_mark: *Available:* {available_count}")
     lines.append(f":x: *Unavailable:* {unavailable_count}")
