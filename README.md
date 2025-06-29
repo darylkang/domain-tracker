@@ -3,7 +3,7 @@
 A Python CLI tool for monitoring domain availability and sending Slack alerts when domains become available. Perfect for tracking expired or dropping domains that you want to register.
 
 [![CI](https://github.com/darylkang/domain-tracker/workflows/CI/badge.svg)](https://github.com/darylkang/domain-tracker/actions)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
 [![Automated Domain Checking](https://github.com/darylkang/domain-tracker/workflows/Automated%20Domain%20Availability%20Checker/badge.svg)](https://github.com/darylkang/domain-tracker/actions)
 
 ## ✨ Features
@@ -194,7 +194,7 @@ The project includes a GitHub Actions workflow that automatically checks your do
 
 - **Automated Runs**: Every hour using cron schedule
 - **Error Handling**: Failures are reported to Slack
-- **Environment Setup**: Python 3.11 with all dependencies
+- **Environment Setup**: Python 3.13 with all dependencies
 - **Timeout Protection**: 10-minute safety timeout
 
 For detailed setup instructions, see [GITHUB_ACTIONS_SETUP.md](GITHUB_ACTIONS_SETUP.md).

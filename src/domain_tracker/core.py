@@ -1,166 +1,200 @@
 """
-Core business logic and models.
+Core business logic for domain availability checking.
 
-This module provides template functionality with Pydantic models
-and demonstrates clean architecture patterns for package development.
+This module contains the main business logic for domain checking operations,
+separated from CLI presentation concerns for better modularity and testing.
 """
 
 from __future__ import annotations
 
 import logging
-from typing import Any
+from datetime import UTC, datetime
+from typing import NamedTuple
 
-from pydantic import BaseModel, Field
-
+from domain_tracker.domain_management import load_domains
 from domain_tracker.settings import Settings
-
-# Configure logging
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
-logger = logging.getLogger(__name__)
-
-
-class ProcessingRequest(BaseModel):
-    """Request model for text processing operations."""
-
-    input_data: str = Field(
-        description="Input text data to be processed",
-    )
-    transform_type: str = Field(
-        default="uppercase",
-        description="Type of transformation to apply to the input",
-    )
+from domain_tracker.slack_notifier import (
+    format_enhanced_slack_message,
+    send_slack_alert,
+)
+from domain_tracker.whois_client import (
+    DomainInfo,
+    check_domain_status_detailed,
+    get_enhanced_domain_info,
+)
 
 
-class ProcessingResult(BaseModel):
-    """Result model for text processing operations."""
+class DomainCheckResult(NamedTuple):
+    """Results from a domain availability check operation."""
 
-    output_data: str = Field(
-        description="Processed output text data",
-    )
-    metadata: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Metadata about the processing operation",
-    )
-    success: bool = Field(
-        default=True,
-        description="Whether the processing operation succeeded",
-    )
+    total_domains: int
+    available_domains: list[str]
+    domain_infos: list[DomainInfo]
+    errors: list[str]
 
 
-class MyPackage:
-    """
-    Main interface class for text processing operations.
-
-    This class demonstrates clean architecture patterns and serves as
-    the primary API for the package's text transformation functionality.
-
-    Example:
-        >>> settings = Settings(whois_api_key="key", slack_webhook_url="url")
-        >>> package = MyPackage(settings)
-        >>> result = package.process("hello world")
-        >>> print(result.output_data)  # "HELLO WORLD"
-    """
+class DomainCheckService:
+    """Service class for handling domain check operations."""
 
     def __init__(self, settings: Settings | None = None) -> None:
+        """Initialize the service with optional settings."""
+        self.settings = settings or Settings()  # type: ignore[call-arg]
+
+    def check_single_domain(
+        self, domain: str, use_enhanced_format: bool = True
+    ) -> DomainInfo:
         """
-        Initialize the package with required settings.
+        Check a single domain and return detailed information.
 
         Args:
-            settings: Configuration settings for the package. Must be provided.
-
-        Raises:
-            ValueError: If settings is None.
-        """
-        if settings is None:
-            raise ValueError("Settings must be provided")
-        self.settings = settings
-        logger.debug("MyPackage initialized successfully")
-
-    def process(
-        self, input_data: str, transform_type: str = "uppercase"
-    ) -> ProcessingResult:
-        """
-        Process input text with the specified transformation.
-
-        Args:
-            input_data: Raw text data to be processed.
-            transform_type: Type of transformation to apply ('uppercase', 'lowercase',
-                          'title', 'reverse', 'capitalize').
+            domain: Domain name to check
+            use_enhanced_format: Whether to use enhanced domain info format
 
         Returns:
-            ProcessingResult containing the processed data and metadata.
+            DomainInfo object with check results
         """
-        logger.info(f"Processing input with transform: {transform_type}")
+        if use_enhanced_format:
+            return get_enhanced_domain_info(domain, self.settings)
+        else:
+            # Legacy format - convert to DomainInfo
+            is_available, problematic_statuses = check_domain_status_detailed(
+                domain, self.settings
+            )
+            return DomainInfo(
+                domain_name=domain,
+                is_available=is_available,
+                problematic_statuses=problematic_statuses,
+                has_error=False,
+            )
 
-        request = ProcessingRequest(
-            input_data=input_data,
-            transform_type=transform_type,
+    def check_multiple_domains(
+        self, domains: list[str] | None = None, use_enhanced_format: bool = True
+    ) -> DomainCheckResult:
+        """
+        Check multiple domains for availability.
+
+        Args:
+            domains: List of domains to check. If None, loads from domains.txt
+            use_enhanced_format: Whether to use enhanced domain info format
+
+        Returns:
+            DomainCheckResult with all check results
+        """
+        if domains is None:
+            domains = load_domains()
+
+        available_domains = []
+        domain_infos = []
+        errors = []
+
+        for domain in domains:
+            try:
+                domain_info = self.check_single_domain(domain, use_enhanced_format)
+                domain_infos.append(domain_info)
+
+                if domain_info.has_error:
+                    errors.append(f"{domain}: {domain_info.error_message}")
+                elif domain_info.is_available:
+                    available_domains.append(domain)
+
+            except Exception as e:
+                error_msg = f"{domain}: {e}"
+                errors.append(error_msg)
+                logging.error(f"Error checking domain {domain}: {e}")
+
+        return DomainCheckResult(
+            total_domains=len(domains),
+            available_domains=available_domains,
+            domain_infos=domain_infos,
+            errors=errors,
         )
 
+    def send_slack_notification(
+        self,
+        domain_infos: list[DomainInfo],
+        trigger_type: str = "manual",
+        notify_all: bool = False,
+    ) -> bool:
+        """
+        Send Slack notification based on domain check results.
+
+        Args:
+            domain_infos: List of domain information objects
+            trigger_type: Type of trigger ("manual" or "scheduled")
+            notify_all: Whether to notify for all domains regardless of availability
+
+        Returns:
+            True if notification was sent successfully, False otherwise
+        """
         try:
-            result = self._apply_transformation(request)
-            logger.info("Processing completed successfully")
-            return result
+            # Determine if we should send notification
+            should_notify = (
+                any(info.is_available for info in domain_infos)
+                or any(info.has_error for info in domain_infos)
+                or notify_all
+            )
+
+            if should_notify and domain_infos:
+                check_time = datetime.now(UTC)
+                enhanced_message = format_enhanced_slack_message(
+                    domain_infos, check_time, trigger_type=trigger_type
+                )
+                send_slack_alert(enhanced_message, self.settings)
+                return True
 
         except Exception as e:
-            logger.error(f"Processing failed: {e}")
-            return ProcessingResult(
-                output_data="",
-                success=False,
-                metadata={"error": str(e)},
-            )
+            logging.error(f"Error sending Slack notification: {e}")
 
-    def _apply_transformation(self, request: ProcessingRequest) -> ProcessingResult:
-        """
-        Apply the requested transformation to the input data.
+        return False
 
-        Args:
-            request: Processing request containing input data and transform type.
 
-        Returns:
-            ProcessingResult with transformed data and metadata.
+def get_legacy_domain_message(
+    domain: str, is_available: bool, problematic_statuses: list[str]
+) -> str:
+    """Create enhanced domain status message based on detailed status information."""
+    # Message templates
+    available_domain_message = "✅ Domain available: {domain}"
+    unavailable_domain_message = "❌ Domain NOT available: {domain}"
+    problematic_status_message = "⚠️ Domain appears available but still in {status}: {domain}. May not be fully released yet."
 
-        Raises:
-            ValueError: If transform_type is not supported.
-        """
-        # Available transformations
-        available_transforms = {
-            "uppercase": str.upper,
-            "lowercase": str.lower,
-            "title": str.title,
-            "reverse": lambda x: x[::-1],
-            "capitalize": str.capitalize,
-        }
+    if not is_available:
+        if problematic_statuses:
+            # Domain appears available but has problematic statuses
+            status_list = ", ".join(problematic_statuses)
+            return problematic_status_message.format(domain=domain, status=status_list)
+        else:
+            # Domain is genuinely unavailable
+            return unavailable_domain_message.format(domain=domain)
+    else:
+        # Domain is truly available
+        return available_domain_message.format(domain=domain)
 
-        if request.transform_type not in available_transforms:
-            supported_types = ", ".join(available_transforms.keys())
-            raise ValueError(
-                f"Unsupported transform_type: '{request.transform_type}'. "
-                f"Supported types: {supported_types}"
-            )
 
-        transform_function = available_transforms[request.transform_type]
-        output_data = transform_function(request.input_data)
+def format_domain_summary(total_domains: int, available_domains: list[str]) -> str:
+    """Format a summary of domain checking results."""
+    available_count = len(available_domains)
 
-        return ProcessingResult(
-            output_data=output_data,
-            metadata={
-                "transform_type": request.transform_type,
-                "input_length": len(request.input_data),
-                "output_length": len(output_data),
-            },
-        )
+    summary_lines = [
+        "📊 Summary:",
+        f"  Checked {total_domains} domains",
+        f"  Found {available_count} available domains",
+    ]
 
-    def get_package_info(self) -> dict[str, Any]:
-        """
-        Get package information and statistics.
+    if available_count == 0:
+        summary_lines.append("  No domains available at this time.")
+    else:
+        summary_lines.append(f"  Available domains: {', '.join(available_domains)}")
 
-        Returns:
-            Dictionary containing package version and settings information.
-        """
-        from domain_tracker import __version__
+    return "\n".join(summary_lines)
 
-        return {
-            "version": __version__,
-            "settings": self.settings.model_dump(),
-        }
+
+def get_domain_status_display(domain_info: DomainInfo) -> str:
+    """Get a CLI-friendly display string for domain status."""
+    if domain_info.has_error:
+        return f"❌ Error: {domain_info.error_message}"
+    elif domain_info.is_available:
+        return "✅ Available"
+    elif domain_info.problematic_statuses:
+        return f"⚠️ Problematic status: {', '.join(domain_info.problematic_statuses)}"
+    else:
+        return "❌ Unavailable"

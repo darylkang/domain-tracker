@@ -16,7 +16,7 @@ jobs:
       SLACK_WEBHOOK_URL: "https://hooks.slack.com/services/test/ci/webhook"
     strategy:
       matrix:
-        python-version: ['3.12', '3.13']
+        python-version: ['3.13']
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
