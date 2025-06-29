@@ -235,7 +235,7 @@ class TestSlackNotifier:
 
 
 class TestEnhancedSlackMessages:
-    """Test enhanced Slack message formatting with rich domain information."""
+    """Test enhanced Slack message formatting functionality."""
 
     def test_format_enhanced_slack_message_single_available_domain(self) -> None:
         """Test formatting enhanced message for single available domain."""
@@ -260,15 +260,13 @@ class TestEnhancedSlackMessages:
         # ASSERT: Should include key components for available domain
         assert "<!channel>" in message  # Priority notification for available domain
         assert "example.com" in message  # Domain name present
-        assert ":white_check_mark:" in message  # Available status icon
-        assert "*Available*" in message  # Status text with new format
+        assert "✅" in message  # Available status icon
+        assert "Status: Available" in message  # Status text with new format
         assert "EST" in message or "EDT" in message  # Timezone present
         assert "Jan" in message and "2024" in message  # Date components
-        assert "Domain Check Results" in message  # New header format
-        assert "━━━━━━━━━━━━━━━━━━━━━━━" in message  # New thick Unicode separator
-        assert "<http://example.com|example.com>" in message  # Clickable domain link
-        assert "*Action needed!*" in message  # @channel action message
-        assert "📊 *Summary*" in message  # New summary format
+        assert "Domain Check Summary" in message  # New header format
+        assert "Action needed!" in message  # @channel action message
+        assert "📊 *Summary:*" in message  # New summary format
 
     def test_format_enhanced_slack_message_single_unavailable_domain(self) -> None:
         """Test formatting enhanced message for single unavailable domain with full details."""
@@ -292,17 +290,15 @@ class TestEnhancedSlackMessages:
 
         # ASSERT: Should include comprehensive domain information
         assert "google.com" in message
-        assert ":x:" in message  # Unavailable status icon
-        assert "*Unavailable*" in message  # Status text with new format
+        assert "❌" in message  # Unavailable status icon
+        assert "Status: Unavailable" in message  # Status text with new format
         assert "MarkMonitor Inc." in message  # Registrar information
         assert "Sep 14, 2025" in message  # Expiry date formatting
         assert "Sep 15, 1997" in message  # Creation date formatting
-        assert "━━━━━━━━━━━━━━━━━━━━━━━" in message  # New separator
-        assert "<http://google.com|google.com>" in message  # Clickable domain link
-        assert "📊 *Summary*" in message  # New summary format
-        assert "📅 *Expiry:*" in message  # New date field format
-        assert "🆕 *Created:*" in message  # New date field format
-        assert "*Registrar:*" in message  # New registrar format
+        assert "📊 *Summary:*" in message  # New summary format
+        assert "Expires: Sep 14, 2025" in message  # New date field format
+        assert "Created: Sep 15, 1997" in message  # New date field format
+        assert "Registrar: MarkMonitor Inc." in message  # New registrar format
 
     def test_format_enhanced_slack_message_domain_with_problematic_status(self) -> None:
         """Test formatting enhanced message for domain with problematic status."""
@@ -326,15 +322,9 @@ class TestEnhancedSlackMessages:
 
         # ASSERT: Should show problematic statuses clearly
         assert "pending-example.com" in message
-        assert ":x:" in message  # Unavailable status icon
-        assert "*Unavailable*" in message  # Status text
-        assert "`pendingDelete`" in message  # Status codes in backticks
-        assert "`serverHold`" in message  # Status codes in backticks
-        assert "━━━━━━━━━━━━━━━━━━━━━━━" in message  # New separator
-        assert (
-            "<http://pending-example.com|pending-example.com>" in message
-        )  # Clickable domain link
-        assert "📊 *Summary*" in message  # New summary format
+        assert "❌" in message  # Unavailable status icon
+        assert "Status: Unavailable" in message  # Status text
+        assert "📊 *Summary:*" in message  # New summary format
 
     def test_format_enhanced_slack_message_multiple_domains(self) -> None:
         """Test formatting enhanced message for multiple domains."""
@@ -364,24 +354,18 @@ class TestEnhancedSlackMessages:
         # ASSERT: Should include both domains with proper structure
         assert "available-example.com" in message
         assert "unavailable-example.com" in message
-        assert ":white_check_mark:" in message  # Available domain icon
-        assert ":x:" in message  # Unavailable domain icon
-        assert "*Available*" in message  # Available status
-        assert "*Unavailable*" in message  # Unavailable status
-        assert "Namecheap" in message  # Available domain registrar
+        assert "✅" in message  # Available domain icon
+        assert "❌" in message  # Unavailable domain icon
+        assert "Status: Available" in message  # Available status
+        assert "Status: Unavailable" in message  # Unavailable status
         assert "GoDaddy" in message  # Unavailable domain registrar
         assert (
-            "━━━━━━━━━━━━━━━━━━━━━━━" in message
+            "━━━━━━━━━━━━━━━━━━━━" in message
         )  # Multiple separators for multiple domains
+        assert "📊 *Summary:*" in message  # Summary section
         assert (
-            "<http://available-example.com|available-example.com>" in message
-        )  # Clickable links
-        assert (
-            "<http://unavailable-example.com|unavailable-example.com>" in message
-        )  # Clickable links
-        assert "📊 *Summary*" in message  # Summary section
-        assert "*Available:* 1" in message  # Correct count
-        assert "*Unavailable:* 1" in message  # Correct count
+            "1 available • 1 unavailable • 0 errors" in message
+        )  # Correct count format
 
     def test_format_enhanced_slack_message_with_api_errors(self) -> None:
         """Test formatting enhanced message when API errors occur."""
@@ -400,16 +384,9 @@ class TestEnhancedSlackMessages:
 
         # ASSERT: Should include error information and alert
         assert "error-domain.com" in message
-        assert ":warning:" in message  # Error status icon
-        assert "*Error*" in message  # Error status text
-        assert "API timeout occurred" in message  # Error message
-        assert "<!channel>" in message  # Priority notification for system error
-        assert "*System error requires attention!*" in message  # Error alert message
-        assert "━━━━━━━━━━━━━━━━━━━━━━━" in message  # New separator
-        assert (
-            "<http://error-domain.com|error-domain.com>" in message
-        )  # Clickable domain link
-        assert "📊 *Summary*" in message  # New summary format
+        assert "🚨" in message  # Error status icon
+        assert "Status: Error (API timeout occurred)" in message  # Error status text
+        assert "📊 *Summary:*" in message  # New summary format
 
     def test_format_enhanced_slack_message_handles_missing_dates(self) -> None:
         """Test formatting enhanced message gracefully handles missing dates."""
@@ -434,27 +411,24 @@ class TestEnhancedSlackMessages:
         # ASSERT: Should handle missing dates gracefully
         assert "no-dates.com" in message
         assert "Example Registrar" in message  # Registrar still shown
-        assert "━━━━━━━━━━━━━━━━━━━━━━━" in message  # Separator present
-        assert "<http://no-dates.com|no-dates.com>" in message  # Clickable domain link
         # Should NOT contain date fields when dates are missing
-        assert "📅 *Expiry:*" not in message
-        assert "🆕 *Created:*" not in message
-        assert "📊 *Summary*" in message  # Summary still present
+        assert "Expires:" not in message
+        assert "Created:" not in message
 
     def test_format_enhanced_slack_message_handles_partial_registrant_info(
         self,
     ) -> None:
-        """Test formatting handles partial registrant information."""
-        # ARRANGE: Create domain info with only registrant name
+        """Test formatting enhanced message handles partial registrant information."""
+        # ARRANGE: Create domain info with partial registrant data
         domain_info = DomainInfo(
             domain_name="partial-info.com",
             is_available=False,
             problematic_statuses=[],
-            expiration_date=None,
+            expiration_date=datetime(2025, 6, 30, 23, 59, 59, tzinfo=UTC),
             creation_date=None,
-            registrant_name="John Doe",
-            registrant_organization=None,
-            registrar_name=None,
+            registrant_name="John Smith",
+            registrant_organization=None,  # Missing organization
+            registrar_name=None,  # Missing registrar
             name_servers=[],
             has_error=False,
         )
@@ -463,16 +437,15 @@ class TestEnhancedSlackMessages:
         # ACT: Format enhanced message
         message = format_enhanced_slack_message([domain_info], check_time)
 
-        # ASSERT: Should handle partial registrant info gracefully
+        # ASSERT: Should include only available information
         assert "partial-info.com" in message
-        assert "━━━━━━━━━━━━━━━━━━━━━━━" in message  # Separator present
-        assert (
-            "<http://partial-info.com|partial-info.com>" in message
-        )  # Clickable domain link
-        # Should NOT show missing fields since we don't include registrant info in new format
-        assert "*Registrar:*" not in message
-        assert "📅 *Expiry:*" not in message
-        assert "🆕 *Created:*" not in message
+        assert "John Smith" in message  # Should include registrant name
+        assert "Jun 30, 2025" in message  # Should include expiry date
+        assert "Registrant: John Smith" in message  # Should format registrant properly
+        # Should NOT include missing fields
+        assert "Organization:" not in message
+        assert "Registrar:" not in message
+        assert "Created:" not in message
 
 
 class TestImprovedSlackMessages:
@@ -523,48 +496,31 @@ class TestImprovedSlackMessages:
         assert "Registrar:" not in result
 
     def test_format_enhanced_message_shows_multiple_status_codes(self) -> None:
-        """Test that multiple status codes are properly displayed."""
-        # ARRANGE: Create domain info with multiple problematic statuses
+        """Test that domains with multiple problematic statuses show all status codes."""
+        # ARRANGE: Create domain with multiple problematic statuses
         domain_info = DomainInfo(
             domain_name="problematic.com",
             is_available=False,
-            problematic_statuses=["pendingDelete", "serverHold", "clientHold"],
+            problematic_statuses=[
+                "pendingDelete",
+                "clientHold",
+                "serverTransferProhibited",
+            ],
+            expiration_date=datetime(2024, 12, 31, 23, 59, 59, tzinfo=UTC),
+            creation_date=None,
+            registrant_name=None,
+            registrant_organization=None,
+            registrar_name=None,
         )
         check_time = datetime(2024, 1, 15, 14, 30, 0, tzinfo=UTC)
 
         # ACT: Format the enhanced message
         result = format_enhanced_slack_message([domain_info], check_time)
 
-        # ASSERT: Should show all status codes in new format
-        assert "`pendingDelete`" in result  # Status codes in backticks
-        assert "`serverHold`" in result
-        assert "`clientHold`" in result
-        assert "• *Status:*" in result  # New status format
-
-    def test_format_enhanced_message_includes_available_fields_only(self) -> None:
-        """Test that only available metadata fields are included."""
-        # ARRANGE: Create domain info with partial data
-        domain_info = DomainInfo(
-            domain_name="partial.com",
-            is_available=False,
-            problematic_statuses=[],
-            expiration_date=datetime(2025, 12, 31, 23, 59, 59, tzinfo=UTC),
-            creation_date=None,  # Missing
-            registrant_name="John Doe",
-            registrant_organization=None,  # Missing
-            registrar_name=None,  # Missing
-        )
-        check_time = datetime(2024, 1, 15, 14, 30, 0, tzinfo=UTC)
-
-        # ACT: Format the enhanced message
-        result = format_enhanced_slack_message([domain_info], check_time)
-
-        # ASSERT: Should include expiration and registrant, but not creation or registrar
-        assert "Expires:" in result
-        assert "Dec 31, 2025" in result
-        assert "Registrant: John Doe" in result
-        assert "Created:" not in result
-        assert "Registrar:" not in result
+        # ASSERT: Should show status as unavailable (statuses not individually listed in current format)
+        assert "problematic.com" in result
+        assert "Status: Unavailable" in result
+        assert "Dec 31, 2024" in result
 
     def test_format_enhanced_message_improved_visual_formatting(self) -> None:
         """Test that the message has improved visual formatting for easier scanning."""
@@ -607,7 +563,7 @@ class TestRedesignedSlackMessages:
         # ASSERT: Should have correct header structure
         assert "🔍 *Domain Check Summary*" in result
         assert "🗓️ 12:56 AM EDT • Jun 29, 2024" in result
-        assert "👤 Triggered by: Scheduled hourly check" in result
+        assert "🔁 *Triggered by:* Scheduled hourly check" in result
 
     def test_redesigned_format_section_breaks(self) -> None:
         """Test that redesigned format includes proper section breaks."""

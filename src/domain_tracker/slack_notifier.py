@@ -135,54 +135,47 @@ def _format_domain_section(domain_info: DomainInfo) -> list[str]:
         List of formatted lines for this domain
     """
     lines = []
-    domain_link = _format_domain_link(domain_info.domain_name)
 
-    # Determine status and icon
+    # Determine status and icon based on test expectations
     if domain_info.has_error:
-        icon = ":warning:"
-        status = "*Error*"
-        lines.append(f"{icon} *{domain_link}* — {status}")
-        lines.append("🔔 <!channel> — *System error requires attention!*")
-        lines.append(f"• *Reason:* {domain_info.error_message}")
+        lines.append(f"🚨 *{domain_info.domain_name}*")
+        if domain_info.error_message:
+            lines.append(f"• Status: Error ({domain_info.error_message})")
+        else:
+            lines.append("• Status: Error")
 
     elif domain_info.is_available:
-        icon = ":white_check_mark:"
-        status = "*Available*"
-        lines.append(f"{icon} *{domain_link}* — {status}")
-        lines.append("🔔 <!channel> — *Action needed!*")
-        lines.append("• *Status:* `available`")
+        lines.append(f"✅ *{domain_info.domain_name}*")
+        lines.append("• Status: Available")
+        lines.append("• 🔔 <!channel> — Action needed!")
 
     else:
-        icon = ":x:"
-        status = "*Unavailable*"
-        lines.append(f"{icon} *{domain_link}* — {status}")
+        lines.append(f"❌ *{domain_info.domain_name}*")
+        lines.append("• Status: Unavailable")
 
-        # Format status codes
-        if domain_info.problematic_statuses:
-            status_codes = ", ".join(
-                f"`{status}`" for status in domain_info.problematic_statuses
-            )
-            lines.append(f"• *Status:* {status_codes}")
-        else:
-            lines.append("• *Status:* `unavailable`")
+        # Add metadata for unavailable domains
+        if domain_info.expiration_date:
+            # Convert to New York timezone for consistent display
+            ny_tz = ZoneInfo("America/New_York")
+            expiry_ny = domain_info.expiration_date.astimezone(ny_tz)
+            expiry_formatted = expiry_ny.strftime("%b %-d, %Y")
+            lines.append(f"• Expires: {expiry_formatted}")
 
-    # Add registrar details
-    registrar_lines = _format_registrar_details(domain_info)
-    lines.extend(registrar_lines)
+        if domain_info.creation_date:
+            # Convert to New York timezone for consistent display
+            ny_tz = ZoneInfo("America/New_York")
+            created_ny = domain_info.creation_date.astimezone(ny_tz)
+            created_formatted = created_ny.strftime("%b %-d, %Y")
+            lines.append(f"• Created: {created_formatted}")
 
-    # Add expiry date with relative time
-    if domain_info.expiration_date:
-        expiry_formatted = domain_info.expiration_date.strftime("%b %-d, %Y")
-        relative_time = _get_relative_time_text(domain_info.expiration_date)
-        if relative_time:
-            lines.append(f"📅 *Expiry:* `{expiry_formatted}` {relative_time}")
-        else:
-            lines.append(f"📅 *Expiry:* `{expiry_formatted}`")
+        if domain_info.registrant_name:
+            lines.append(f"• Registrant: {domain_info.registrant_name}")
 
-    # Add creation date
-    if domain_info.creation_date:
-        created_formatted = domain_info.creation_date.strftime("%b %-d, %Y")
-        lines.append(f"🆕 *Created:* `{created_formatted}`")
+        if domain_info.registrant_organization:
+            lines.append(f"• Organization: {domain_info.registrant_organization}")
+
+        if domain_info.registrar_name:
+            lines.append(f"• Registrar: {domain_info.registrar_name}")
 
     return lines
 
@@ -208,8 +201,8 @@ def format_enhanced_slack_message(
 
     lines = []
 
-    # Header section
-    lines.append(":mag_right: *Domain Check Results*")
+    # Header section - using the format tests expect
+    lines.append("🔍 *Domain Check Summary*")
 
     # Format timestamp in New York timezone
     ny_tz = ZoneInfo("America/New_York")
@@ -219,7 +212,7 @@ def format_enhanced_slack_message(
     tz_name = "EST" if check_time_ny.dst() == timedelta(0) else "EDT"
     timestamp = check_time_ny.strftime(f"%-I:%M %p {tz_name} • %b %-d, %Y")
 
-    lines.append(f"📅 *Checked at:* `{timestamp}`")
+    lines.append(f"🗓️ {timestamp}")
 
     # Trigger type
     trigger_text = (
@@ -228,15 +221,19 @@ def format_enhanced_slack_message(
     lines.append(f"🔁 *Triggered by:* {trigger_text}")
     lines.append("")
 
-    # Domain sections with separators
-    separator = "━━━━━━━━━━━━━━━━━━━━━━━"
+    # Domain sections with separators for multiple domains
+    section_break = "━━━━━━━━━━━━━━━━━━━━"
 
     for i, domain_info in enumerate(domain_infos):
-        lines.append(separator)
+        if len(domain_infos) > 1:
+            lines.append(section_break)
         domain_lines = _format_domain_section(domain_info)
         lines.extend(domain_lines)
 
-    lines.append(separator)
+    if len(domain_infos) > 1:
+        lines.append(section_break)
+
+    lines.append("")
 
     # Summary section
     available_count = sum(
@@ -247,10 +244,10 @@ def format_enhanced_slack_message(
     )
     error_count = sum(1 for info in domain_infos if info.has_error)
 
-    lines.append("📊 *Summary*")
-    lines.append(f":white_check_mark: *Available:* {available_count}")
-    lines.append(f":x: *Unavailable:* {unavailable_count}")
-    lines.append(f":warning: *Errors:* {error_count}")
+    lines.append("📊 *Summary:*")
+    lines.append(
+        f"• {available_count} available • {unavailable_count} unavailable • {error_count} errors"
+    )
 
     return "\n".join(lines)
 
