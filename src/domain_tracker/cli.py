@@ -15,11 +15,12 @@ import typer
 from domain_tracker.domain_management import load_domains
 from domain_tracker.settings import Settings
 from domain_tracker.slack_notifier import send_slack_alert
-from domain_tracker.whois_client import check_domain_availability
+from domain_tracker.whois_client import check_domain_availability, check_domain_status_detailed
 
 # Message templates
 AVAILABLE_DOMAIN_MESSAGE = "✅ Domain available: {domain}"
 UNAVAILABLE_DOMAIN_MESSAGE = "❌ Domain NOT available: {domain}"
+PROBLEMATIC_STATUS_MESSAGE = "⚠️ Domain appears available but still in {status}: {domain}. May not be fully released yet."
 
 # Create the Typer app
 app = typer.Typer(
@@ -53,6 +54,21 @@ def _load_settings() -> Settings:
         print(f"❌ Error loading configuration: {e}")
         print("   Make sure WHOIS_API_KEY and SLACK_WEBHOOK_URL are set.")
         raise typer.Exit(code=1) from e
+
+
+def _get_enhanced_domain_message(domain: str, is_available: bool, problematic_statuses: list[str]) -> str:
+    """Create enhanced domain status message based on detailed status information."""
+    if not is_available:
+        if problematic_statuses:
+            # Domain appears available but has problematic statuses
+            status_list = ", ".join(problematic_statuses)
+            return PROBLEMATIC_STATUS_MESSAGE.format(domain=domain, status=status_list)
+        else:
+            # Domain is genuinely unavailable
+            return UNAVAILABLE_DOMAIN_MESSAGE.format(domain=domain)
+    else:
+        # Domain is truly available
+        return AVAILABLE_DOMAIN_MESSAGE.format(domain=domain)
 
 
 def _print_domain_summary(total_domains: int, available_domains: list[str]) -> None:
@@ -89,16 +105,12 @@ def check_single_domain_command(
         settings = _load_settings()
 
         print(f"🔍 Checking {domain}...")
-        is_available = check_domain_availability(domain, settings)
+        is_available, problematic_statuses = check_domain_status_detailed(domain, settings)
 
-        if is_available:
-            message = AVAILABLE_DOMAIN_MESSAGE.format(domain=domain)
-            print(message)
-            _send_slack_alert_safely(message, settings)
-        else:
-            message = UNAVAILABLE_DOMAIN_MESSAGE.format(domain=domain)
-            print(message)
-            _send_slack_alert_safely(message, settings)
+        # Create enhanced message based on detailed status
+        message = _get_enhanced_domain_message(domain, is_available, problematic_statuses)
+        print(message)
+        _send_slack_alert_safely(message, settings)
 
     except Exception as e:
         print(f"❌ Error checking domain {domain}: {e}")
@@ -141,21 +153,23 @@ def check_domains(
         for domain in domains:
             try:
                 print(f"  Checking {domain}...", end=" ")
-                is_available = check_domain_availability(domain, settings)
+                is_available, problematic_statuses = check_domain_status_detailed(domain, settings)
+
+                # Create enhanced message for this domain
+                message = _get_enhanced_domain_message(domain, is_available, problematic_statuses)
 
                 if is_available:
                     print("✅ Available")
                     available_domains.append(domain)
-                    _send_slack_alert_safely(
-                        AVAILABLE_DOMAIN_MESSAGE.format(domain=domain), settings
-                    )
+                    _send_slack_alert_safely(message, settings)
                 else:
-                    print("❌ Unavailable")
+                    if problematic_statuses:
+                        print(f"⚠️ Problematic status: {', '.join(problematic_statuses)}")
+                    else:
+                        print("❌ Unavailable")
+                    
                     if notify_all:
-                        _send_slack_alert_safely(
-                            UNAVAILABLE_DOMAIN_MESSAGE.format(domain=domain),
-                            settings,
-                        )
+                        _send_slack_alert_safely(message, settings)
 
             except Exception as e:
                 print(f"❌ Error checking {domain}: {e}")

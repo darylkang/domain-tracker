@@ -14,7 +14,7 @@ import requests
 from requests.exceptions import ConnectionError, Timeout
 
 from domain_tracker.settings import Settings
-from domain_tracker.whois_client import check_domain_availability
+from domain_tracker.whois_client import check_domain_availability, check_domain_status_detailed
 
 
 class TestWhoisClient:
@@ -213,3 +213,357 @@ class TestWhoisClient:
             assert result is False, (
                 f"Should return False for invalid domain: {invalid_domain}"
             )
+
+    def test_check_domain_availability_returns_false_for_pending_delete_status(
+        self,
+    ) -> None:
+        """Test that domains in pendingDelete status return False."""
+        # ARRANGE: Mock API response with pendingDelete status
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "DomainInfo": {
+                "domainAvailability": "AVAILABLE",
+                "status": ["pendingDelete"]
+            }
+        }
+
+        with patch("requests.get", return_value=mock_response):
+            # ACT: Check domain availability
+            result = check_domain_availability("pending-delete.com")
+
+            # ASSERT: Should return False for pendingDelete status
+            assert result is False
+
+    def test_check_domain_availability_returns_false_for_redemption_period_status(
+        self,
+    ) -> None:
+        """Test that domains in redemptionPeriod status return False."""
+        # ARRANGE: Mock API response with redemptionPeriod status
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "DomainInfo": {
+                "domainAvailability": "AVAILABLE",
+                "status": ["redemptionPeriod"]
+            }
+        }
+
+        with patch("requests.get", return_value=mock_response):
+            # ACT: Check domain availability
+            result = check_domain_availability("redemption-period.com")
+
+            # ASSERT: Should return False for redemptionPeriod status
+            assert result is False
+
+    def test_check_domain_availability_returns_false_for_client_hold_status(
+        self,
+    ) -> None:
+        """Test that domains in clientHold status return False."""
+        # ARRANGE: Mock API response with clientHold status
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "DomainInfo": {
+                "domainAvailability": "AVAILABLE",
+                "status": ["clientHold"]
+            }
+        }
+
+        with patch("requests.get", return_value=mock_response):
+            # ACT: Check domain availability
+            result = check_domain_availability("client-hold.com")
+
+            # ASSERT: Should return False for clientHold status
+            assert result is False
+
+    def test_check_domain_availability_returns_false_for_server_hold_status(
+        self,
+    ) -> None:
+        """Test that domains in serverHold status return False."""
+        # ARRANGE: Mock API response with serverHold status
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "DomainInfo": {
+                "domainAvailability": "AVAILABLE",
+                "status": ["serverHold"]
+            }
+        }
+
+        with patch("requests.get", return_value=mock_response):
+            # ACT: Check domain availability
+            result = check_domain_availability("server-hold.com")
+
+            # ASSERT: Should return False for serverHold status
+            assert result is False
+
+    def test_check_domain_availability_returns_false_for_renew_period_status(
+        self,
+    ) -> None:
+        """Test that domains in renewPeriod status return False."""
+        # ARRANGE: Mock API response with renewPeriod status
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "DomainInfo": {
+                "domainAvailability": "AVAILABLE",
+                "status": ["renewPeriod"]
+            }
+        }
+
+        with patch("requests.get", return_value=mock_response):
+            # ACT: Check domain availability
+            result = check_domain_availability("renew-period.com")
+
+            # ASSERT: Should return False for renewPeriod status
+            assert result is False
+
+    def test_check_domain_availability_returns_false_for_transfer_period_status(
+        self,
+    ) -> None:
+        """Test that domains in transferPeriod status return False."""
+        # ARRANGE: Mock API response with transferPeriod status
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "DomainInfo": {
+                "domainAvailability": "AVAILABLE",
+                "status": ["transferPeriod"]
+            }
+        }
+
+        with patch("requests.get", return_value=mock_response):
+            # ACT: Check domain availability
+            result = check_domain_availability("transfer-period.com")
+
+            # ASSERT: Should return False for transferPeriod status
+            assert result is False
+
+    def test_check_domain_availability_returns_false_for_multiple_problematic_statuses(
+        self,
+    ) -> None:
+        """Test that domains with multiple problematic statuses return False."""
+        # ARRANGE: Mock API response with multiple problematic statuses
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "DomainInfo": {
+                "domainAvailability": "AVAILABLE",
+                "status": ["pendingDelete", "serverHold", "clientHold"]
+            }
+        }
+
+        with patch("requests.get", return_value=mock_response):
+            # ACT: Check domain availability
+            result = check_domain_availability("multiple-status.com")
+
+            # ASSERT: Should return False for multiple problematic statuses
+            assert result is False
+
+    def test_check_domain_availability_returns_true_for_available_with_ok_status(
+        self,
+    ) -> None:
+        """Test that domains with acceptable statuses return True when available."""
+        # ARRANGE: Mock API response with acceptable status
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "DomainInfo": {
+                "domainAvailability": "AVAILABLE",
+                "status": ["ok", "inactive"]
+            }
+        }
+
+        with patch("requests.get", return_value=mock_response):
+            # ACT: Check domain availability
+            result = check_domain_availability("available-ok.com")
+
+            # ASSERT: Should return True for available domain with acceptable status
+            assert result is True
+
+    def test_check_domain_availability_handles_missing_status_field(self) -> None:
+        """Test that domains without status field work as before."""
+        # ARRANGE: Mock API response without status field (backward compatibility)
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "DomainInfo": {"domainAvailability": "AVAILABLE"}
+        }
+
+        with patch("requests.get", return_value=mock_response):
+            # ACT: Check domain availability
+            result = check_domain_availability("no-status-field.com")
+
+            # ASSERT: Should return True when available and no status field
+            assert result is True
+
+    def test_check_domain_availability_handles_case_insensitive_status(self) -> None:
+        """Test that status checking is case insensitive."""
+        # ARRANGE: Mock API response with mixed case status
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "DomainInfo": {
+                "domainAvailability": "AVAILABLE",
+                "status": ["PendingDelete", "ServerHold"]
+            }
+        }
+
+        with patch("requests.get", return_value=mock_response):
+            # ACT: Check domain availability
+            result = check_domain_availability("mixed-case-status.com")
+
+            # ASSERT: Should return False for mixed case problematic statuses
+            assert result is False
+
+
+class TestDomainStatusDetailed:
+    """Test detailed domain status checking functionality."""
+
+    def test_check_domain_status_detailed_returns_available_true_with_empty_status(
+        self,
+    ) -> None:
+        """Test detailed status check for available domain with no problematic status."""
+        # ARRANGE: Mock API response for available domain
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "DomainInfo": {
+                "domainAvailability": "AVAILABLE",
+                "status": ["ok"]
+            }
+        }
+
+        with patch("requests.get", return_value=mock_response):
+            # ACT: Check detailed domain status
+            is_available, problematic_statuses = check_domain_status_detailed("available.com")
+
+            # ASSERT: Should return True with empty problematic statuses
+            assert is_available is True
+            assert problematic_statuses == []
+
+    def test_check_domain_status_detailed_returns_false_with_problematic_status(
+        self,
+    ) -> None:
+        """Test detailed status check for domain with problematic status."""
+        # ARRANGE: Mock API response with pendingDelete status
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "DomainInfo": {
+                "domainAvailability": "AVAILABLE",
+                "status": ["pendingDelete", "ok"]
+            }
+        }
+
+        with patch("requests.get", return_value=mock_response):
+            # ACT: Check detailed domain status
+            is_available, problematic_statuses = check_domain_status_detailed("problematic.com")
+
+            # ASSERT: Should return False with problematic status listed
+            assert is_available is False
+            assert "pendingDelete" in problematic_statuses
+
+    def test_check_domain_status_detailed_returns_multiple_problematic_statuses(
+        self,
+    ) -> None:
+        """Test detailed status check with multiple problematic statuses."""
+        # ARRANGE: Mock API response with multiple problematic statuses
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "DomainInfo": {
+                "domainAvailability": "AVAILABLE",
+                "status": ["pendingDelete", "serverHold", "ok", "clientHold"]
+            }
+        }
+
+        with patch("requests.get", return_value=mock_response):
+            # ACT: Check detailed domain status
+            is_available, problematic_statuses = check_domain_status_detailed("multiple-problems.com")
+
+            # ASSERT: Should return False with all problematic statuses
+            assert is_available is False
+            assert len(problematic_statuses) == 3
+            assert "pendingDelete" in problematic_statuses
+            assert "serverHold" in problematic_statuses
+            assert "clientHold" in problematic_statuses
+            assert "ok" not in problematic_statuses
+
+    def test_check_domain_status_detailed_handles_case_insensitive_statuses(
+        self,
+    ) -> None:
+        """Test detailed status check handles case insensitive statuses."""
+        # ARRANGE: Mock API response with mixed case statuses
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "DomainInfo": {
+                "domainAvailability": "AVAILABLE",
+                "status": ["PendingDelete", "ServerHold"]
+            }
+        }
+
+        with patch("requests.get", return_value=mock_response):
+            # ACT: Check detailed domain status
+            is_available, problematic_statuses = check_domain_status_detailed("mixed-case.com")
+
+            # ASSERT: Should return normalized status names
+            assert is_available is False
+            assert "pendingDelete" in problematic_statuses
+            assert "serverHold" in problematic_statuses
+
+    def test_check_domain_status_detailed_handles_unavailable_domain(
+        self,
+    ) -> None:
+        """Test detailed status check for genuinely unavailable domain."""
+        # ARRANGE: Mock API response for unavailable domain
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "DomainInfo": {
+                "domainAvailability": "UNAVAILABLE",
+                "status": ["ok"]
+            }
+        }
+
+        with patch("requests.get", return_value=mock_response):
+            # ACT: Check detailed domain status
+            is_available, problematic_statuses = check_domain_status_detailed("unavailable.com")
+
+            # ASSERT: Should return False with empty problematic statuses
+            assert is_available is False
+            assert problematic_statuses == []
+
+    def test_check_domain_status_detailed_handles_missing_status_field(
+        self,
+    ) -> None:
+        """Test detailed status check handles missing status field."""
+        # ARRANGE: Mock API response without status field
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "DomainInfo": {"domainAvailability": "AVAILABLE"}
+        }
+
+        with patch("requests.get", return_value=mock_response):
+            # ACT: Check detailed domain status
+            is_available, problematic_statuses = check_domain_status_detailed("no-status.com")
+
+            # ASSERT: Should return True with empty problematic statuses
+            assert is_available is True
+            assert problematic_statuses == []
+
+    def test_check_domain_status_detailed_handles_errors(
+        self,
+    ) -> None:
+        """Test detailed status check handles API errors gracefully."""
+        # ARRANGE: Mock network error
+        with patch("requests.get", side_effect=ConnectionError("Network error")):
+            # ACT: Check detailed domain status
+            is_available, problematic_statuses = check_domain_status_detailed("error.com")
+
+            # ASSERT: Should return False with empty problematic statuses
+            assert is_available is False
+            assert problematic_statuses == []
