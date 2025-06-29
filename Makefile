@@ -1,10 +1,13 @@
 .PHONY: help install test test-watch test-cov test-file lint format type-check clean dev-setup tdd-demo
 
 help: ## Show available commands
-	@echo "🚀 Vibe Coding Template - Available Commands:"
+	@echo "🚀 Domain Tracker - Available Commands:"
 	@echo ""
 	@echo "📦 Setup & Installation:"
 	@awk 'BEGIN {FS = ":.*?## "} /^install.*:.*?## / {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@echo ""
+	@echo "🔍 Domain Commands:"
+	@awk 'BEGIN {FS = ":.*?## "} /^(run|check-single|setup-env|validate-config).*:.*?## / {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 	@echo ""
 	@echo "🧪 TDD & Testing:"
 	@awk 'BEGIN {FS = ":.*?## "} /^test.*:.*?## / {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -94,6 +97,43 @@ clean: ## Clean build artifacts and caches
 	find . -type f -name "*.pyo" -delete
 	find . -type f -name ".coverage" -delete
 	@echo "✅ Cleanup complete!"
+
+# Domain Tracker Commands
+run: ## Run domain checking for all domains in domains.txt
+	@echo "🔍 Running domain availability check..."
+	vibe check-domains
+
+run-debug: ## Run domain checking with debug logging
+	@echo "🔍 Running domain availability check (debug mode)..."
+	vibe check-domains --debug
+
+run-all: ## Run domain checking with notifications for all domains
+	@echo "🔍 Running domain availability check (notify all)..."
+	vibe check-domains --notify-all
+
+check-single: ## Check a single domain (usage: make check-single DOMAIN=example.com)
+	@echo "🔍 Checking single domain: $(DOMAIN)"
+	@if [ -z "$(DOMAIN)" ]; then \
+		echo "❌ Please specify DOMAIN=example.com"; \
+		exit 1; \
+	fi
+	vibe check $(DOMAIN)
+
+setup-env: ## Create .env file from template
+	@echo "🔧 Setting up environment configuration..."
+	@if [ ! -f .env ]; then \
+		cp .env.example .env; \
+		echo "✅ Created .env file from template"; \
+		echo "📝 Please edit .env with your actual API keys"; \
+		echo "   - WHOIS_API_KEY: Get from https://whoisxml.whoisapi.com/"; \
+		echo "   - SLACK_WEBHOOK_URL: Create at https://api.slack.com/messaging/webhooks"; \
+	else \
+		echo "⚠️  .env file already exists"; \
+	fi
+
+validate-config: ## Validate environment configuration
+	@echo "🔍 Validating configuration..."
+	@python -c "from domain_tracker.settings import Settings; s = Settings(); print('✅ Configuration valid!')" || echo "❌ Configuration invalid - check your .env file"
 
 # TDD Learning & Demo
 tdd-demo: ## Show TDD workflow example
