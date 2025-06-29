@@ -7,6 +7,12 @@ on:
 
   # Allow manual triggering for testing
   workflow_dispatch:
+    inputs:
+      send_heartbeat:
+        description: 'Send heartbeat notification even if no domains available'
+        required: false
+        default: true
+        type: boolean
 
 env:
   PYTHON_VERSION: '3.13'
@@ -32,17 +38,38 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e .
 
-      - name: Check domain availability
+      - name: Check domain availability (Scheduled)
+        if: github.event_name == 'schedule'
         env:
           WHOIS_API_KEY: ${{ secrets.WHOIS_API_KEY }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
-          # Run domain checking with error handling
-          if ! vibe check-domains; then
+          # Run scheduled domain check with heartbeat
+          echo "Running scheduled domain check..."
+          if ! vibe check-domains --scheduled --heartbeat; then
             echo "Domain check failed with exit code $?"
             exit 1
           fi
-          echo "Domain check completed successfully"
+          echo "Scheduled domain check completed successfully"
+
+      - name: Check domain availability (Manual)
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          WHOIS_API_KEY: ${{ secrets.WHOIS_API_KEY }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          # Run manual domain check
+          echo "Running manual domain check..."
+          HEARTBEAT_FLAG=""
+          if [ "${{ github.event.inputs.send_heartbeat }}" = "true" ]; then
+            HEARTBEAT_FLAG="--heartbeat"
+          fi
+
+          if ! vibe check-domains --manual $HEARTBEAT_FLAG; then
+            echo "Domain check failed with exit code $?"
+            exit 1
+          fi
+          echo "Manual domain check completed successfully"
 
       - name: Notify on failure
         if: failure()
@@ -50,6 +77,13 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
           # Send failure notification to Slack
+          TRIGGER_TYPE="Scheduled"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TRIGGER_TYPE="Manual"
+          fi
+
           curl -X POST -H 'Content-type: application/json' \
-            --data '{"text":"🚨 Domain Tracker GitHub Action Failed\n\nThe automated domain availability check encountered an error.\n\nWorkflow: ${{ github.workflow }}\nRun ID: ${{ github.run_id }}\nRepository: ${{ github.repository }}\nTimestamp: $(date -u +\"%Y-%m-%d %H:%M:%S UTC\")\n\nPlease check the GitHub Actions logs for details."}' \
+            --data "{
+              \"text\": \"🚨 Domain Tracker GitHub Action Failed\\n\\n❌ The automated domain availability check encountered an error.\\n\\n📋 **Details:**\\n• Workflow: ${{ github.workflow }}\\n• Trigger: ${TRIGGER_TYPE}\\n• Run ID: ${{ github.run_id }}\\n• Repository: ${{ github.repository }}\\n• Timestamp: $(date -u +'%Y-%m-%d %H:%M:%S UTC')\\n\\n🔗 [View Logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})\\n\\nPlease check the GitHub Actions logs for details.\"
+            }" \
             $SLACK_WEBHOOK_URL || echo "Failed to send Slack notification"

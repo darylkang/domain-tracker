@@ -129,6 +129,7 @@ class DomainCheckService:
             domain_infos: List of domain information objects
             trigger_type: Type of trigger ("manual" or "scheduled")
             notify_all: Whether to notify for all domains regardless of availability
+                        (includes heartbeat notifications)
 
         Returns:
             True if notification was sent successfully, False otherwise
@@ -141,10 +142,11 @@ class DomainCheckService:
             should_notify = (
                 has_available
                 or has_errors  # Always notify for errors (system issues)
-                or notify_all  # Always notify when explicitly requested
+                or notify_all  # Always notify when explicitly requested (includes heartbeat)
             )
 
-            if should_notify and domain_infos:
+            # Send notification even for empty domain list if notify_all is True (heartbeat mode)
+            if should_notify and (domain_infos or notify_all):
                 check_time = datetime.now(UTC)
                 enhanced_message = format_enhanced_slack_message(
                     domain_infos, check_time, trigger_type=trigger_type

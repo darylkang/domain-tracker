@@ -208,12 +208,48 @@ def check_domains(
             "--debug", help="Enable debug-level logging and raw API response output"
         ),
     ] = False,
+    scheduled: Annotated[
+        bool,
+        typer.Option(
+            "--scheduled",
+            help="Indicate this is a scheduled run (affects trigger type in notifications)",
+        ),
+    ] = False,
+    manual: Annotated[
+        bool,
+        typer.Option(
+            "--manual",
+            help="Indicate this is a manual run (affects trigger type in notifications)",
+        ),
+    ] = False,
+    heartbeat: Annotated[
+        bool,
+        typer.Option(
+            "--heartbeat",
+            help="Send heartbeat notification even when no domains are available",
+        ),
+    ] = False,
 ) -> None:
     """Check domain availability and send Slack alerts for available domains."""
     # Configure logging if debug mode is enabled
     if debug:
         logging.basicConfig(level=logging.DEBUG)
         print("🔧 Debug mode enabled - will show raw API responses")
+
+    # Determine trigger type
+    if scheduled and manual:
+        print("❌ Error: Cannot specify both --scheduled and --manual flags")
+        raise typer.Exit(code=1)
+
+    trigger_type = "scheduled" if scheduled else "manual"
+
+    # Enable notify_all for heartbeat or when explicitly requested
+    should_notify_all = notify_all or heartbeat
+
+    if heartbeat:
+        print(
+            "💓 Heartbeat mode enabled - will send notification regardless of results"
+        )
 
     settings = _load_settings()
     service = DomainCheckService(settings)
@@ -242,9 +278,25 @@ def check_domains(
                 print(formatted_line)
 
             # Send enhanced Slack notification
-            service.send_slack_notification(
-                result.domain_infos, trigger_type="manual", notify_all=notify_all
+            notification_sent = service.send_slack_notification(
+                result.domain_infos,
+                trigger_type=trigger_type,
+                notify_all=should_notify_all,
             )
+
+            # Print notification status
+            if notification_sent:
+                trigger_desc = "scheduled" if scheduled else "manual"
+                if (
+                    heartbeat
+                    and not result.available_domains
+                    and not any(info.has_error for info in result.domain_infos)
+                ):
+                    print(f"💓 Heartbeat notification sent ({trigger_desc} trigger)")
+                else:
+                    print(f"📢 Slack notification sent ({trigger_desc} trigger)")
+            elif heartbeat:
+                print("⚠️  Heartbeat requested but notification failed to send")
 
             # Print summary
             print(
@@ -278,7 +330,7 @@ def check_domains(
                 # Send individual alerts for legacy mode
                 if domain_info.is_available:
                     _send_slack_alert_safely(service, message)
-                elif notify_all:
+                elif should_notify_all:
                     _send_slack_alert_safely(service, message)
 
             # Print summary
