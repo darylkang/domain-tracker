@@ -290,10 +290,7 @@ def get_enhanced_domain_info(
         problematic_statuses = _get_problematic_statuses(statuses)
 
         # Determine final availability (considering problematic statuses)
-        is_available = (
-            availability == "AVAILABLE"
-            and len(problematic_statuses) == 0
-        )
+        is_available = availability == "AVAILABLE" and len(problematic_statuses) == 0
 
         # Parse dates
         expiration_date = _parse_api_date(domain_data.get("expiresDate"))
@@ -355,12 +352,12 @@ def _parse_api_date(date_string: str | None) -> datetime | None:
 
     try:
         # Handle ISO format dates (with or without timezone)
-        if date_string.endswith('Z'):
-            date_string = date_string[:-1] + '+00:00'
-        elif '+' not in date_string and date_string.count(':') == 2:
-            date_string += '+00:00'
+        if date_string.endswith("Z"):
+            date_string = date_string[:-1] + "+00:00"
+        elif "+" not in date_string and date_string.count(":") == 2:
+            date_string += "+00:00"
 
-        return datetime.fromisoformat(date_string.replace('Z', '+00:00'))
+        return datetime.fromisoformat(date_string.replace("Z", "+00:00"))
     except (ValueError, AttributeError):
         logging.warning(f"Failed to parse date: {date_string}")
         return None

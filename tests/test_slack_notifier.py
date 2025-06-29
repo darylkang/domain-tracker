@@ -7,7 +7,7 @@ sending Slack alerts when domains become available.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from unittest.mock import Mock, patch
 
 import requests
@@ -251,16 +251,21 @@ class TestEnhancedSlackMessages:
             name_servers=[],
             has_error=False,
         )
-        check_time = datetime(2024, 1, 15, 14, 30, 0)
+        check_time = datetime(2024, 1, 15, 14, 30, 0, tzinfo=UTC)
 
         # ACT: Format enhanced message
         message = format_enhanced_slack_message([domain_info], check_time)
 
         # ASSERT: Should include timestamp, domain details, and priority notification
         assert "<!channel>" in message  # Priority notification for available domain
-        assert "2024-01-15 14:30:00 UTC" in message  # Timestamp
-        assert "✅ **example.com**" in message  # Available status with markdown formatting
+        assert "9:30 AM EST • Jan 15, 2024" in message  # New York time format
+        assert "✅ **example.com**" in message  # Available with markdown formatting
         assert "Status: Available" in message
+        # Should NOT include missing fields
+        assert "Expires:" not in message
+        assert "Created:" not in message
+        assert "Registrant:" not in message
+        assert "Registrar:" not in message
 
     def test_format_enhanced_slack_message_single_unavailable_domain(self) -> None:
         """Test formatting enhanced message for single unavailable domain with full details."""
@@ -269,25 +274,27 @@ class TestEnhancedSlackMessages:
             domain_name="google.com",
             is_available=False,
             problematic_statuses=[],
-            expiration_date=datetime(2025, 9, 14, 4, 0, 0),
-            creation_date=datetime(1997, 9, 15, 4, 0, 0),
+            expiration_date=datetime(2025, 9, 14, 4, 0, 0, tzinfo=UTC),
+            creation_date=datetime(1997, 9, 15, 4, 0, 0, tzinfo=UTC),
             registrant_name="Domain Administrator",
             registrant_organization="Google LLC",
             registrar_name="MarkMonitor Inc.",
             name_servers=["ns1.google.com", "ns2.google.com"],
             has_error=False,
         )
-        check_time = datetime(2024, 1, 15, 14, 30, 0)
+        check_time = datetime(2024, 1, 15, 14, 30, 0, tzinfo=UTC)
 
         # ACT: Format enhanced message
         message = format_enhanced_slack_message([domain_info], check_time)
 
         # ASSERT: Should include all domain details without priority notification
         assert "<!channel>" not in message  # No priority for unavailable domain
-        assert "❌ **google.com**" in message  # Unavailable status with markdown formatting
+        assert (
+            "❌ **google.com**" in message
+        )  # Unavailable status with markdown formatting
         assert "Status: Unavailable" in message
-        assert "Expires: 2025-09-14 04:00:00 UTC" in message
-        assert "Created: 1997-09-15 04:00:00 UTC" in message
+        assert "Expires: Sep 14, 2025" in message  # New York date format
+        assert "Created: Sep 15, 1997" in message  # New York date format
         assert "Registrant: Domain Administrator (Google LLC)" in message
         assert "Registrar: MarkMonitor Inc." in message
         assert "Name Servers: ns1.google.com, ns2.google.com" in message
@@ -313,7 +320,9 @@ class TestEnhancedSlackMessages:
         message = format_enhanced_slack_message([domain_info], check_time)
 
         # ASSERT: Should highlight problematic statuses
-        assert "⚠️ **pending-example.com**" in message  # Warning icon with markdown formatting
+        assert (
+            "⚠️ **pending-example.com**" in message
+        )  # Warning icon with markdown formatting
         assert "Status: Problematic (pendingDelete, serverHold)" in message
         assert "Registrant: Previous Owner (Old Company Inc.)" in message
 
@@ -336,7 +345,7 @@ class TestEnhancedSlackMessages:
             domain_name="taken.com",
             is_available=False,
             problematic_statuses=[],
-            expiration_date=datetime(2025, 6, 1, 0, 0, 0),
+            expiration_date=datetime(2025, 6, 1, 0, 0, 0, tzinfo=UTC),
             creation_date=None,
             registrant_name="John Doe",
             registrant_organization=None,
@@ -345,7 +354,7 @@ class TestEnhancedSlackMessages:
             has_error=False,
         )
         domain_infos = [available_domain, unavailable_domain]
-        check_time = datetime(2024, 1, 15, 14, 30, 0)
+        check_time = datetime(2024, 1, 15, 14, 30, 0, tzinfo=UTC)
 
         # ACT: Format enhanced message
         message = format_enhanced_slack_message(domain_infos, check_time)
@@ -355,9 +364,12 @@ class TestEnhancedSlackMessages:
         assert "Domain Check Summary" in message
         assert "✅ **available.com**" in message  # Available with markdown formatting
         assert "❌ **taken.com**" in message  # Unavailable with markdown formatting
-        assert "Expires: 2025-06-01 00:00:00 UTC" in message
+        assert (
+            "Expires: May 31, 2025" in message
+        )  # New York date format (UTC midnight becomes previous day evening in NY)
         assert "Registrant: John Doe" in message
         assert "Registrar: GoDaddy Inc." in message
+        assert "📊 **Summary:** 1 available • 1 unavailable • 0 errors" in message
 
     def test_format_enhanced_slack_message_with_api_errors(self) -> None:
         """Test formatting message when API errors occur."""
@@ -382,7 +394,9 @@ class TestEnhancedSlackMessages:
 
         # ASSERT: Should include error notification with priority alert
         assert "<!channel>" in message  # Priority notification for system error
-        assert "🚨 **error-domain.com**" in message  # Error icon with markdown formatting
+        assert (
+            "🚨 **error-domain.com**" in message
+        )  # Error icon with markdown formatting
         assert "Status: Error (API request timeout)" in message
 
     def test_format_enhanced_slack_message_handles_missing_dates(self) -> None:
@@ -400,18 +414,22 @@ class TestEnhancedSlackMessages:
             name_servers=[],
             has_error=False,
         )
-        check_time = datetime(2024, 1, 15, 14, 30, 0)
+        check_time = datetime(2024, 1, 15, 14, 30, 0, tzinfo=UTC)
 
         # ACT: Format enhanced message
         message = format_enhanced_slack_message([domain_info], check_time)
 
-        # ASSERT: Should handle missing dates gracefully
+        # ASSERT: Should handle missing dates gracefully by omitting them
         assert "❌ **no-dates.com**" in message  # Unavailable with markdown formatting
-        assert "Expires: Not available" in message
-        assert "Created: Not available" in message
         assert "Registrant: Owner Name" in message
+        # Should NOT show missing fields
+        assert "Expires:" not in message
+        assert "Created:" not in message
+        assert "Registrar:" not in message
 
-    def test_format_enhanced_slack_message_handles_partial_registrant_info(self) -> None:
+    def test_format_enhanced_slack_message_handles_partial_registrant_info(
+        self,
+    ) -> None:
         """Test formatting handles partial registrant information."""
         # ARRANGE: Create domain info with only registrant name
         domain_info = DomainInfo(
@@ -426,11 +444,129 @@ class TestEnhancedSlackMessages:
             name_servers=[],
             has_error=False,
         )
-        check_time = datetime(2024, 1, 15, 14, 30, 0)
+        check_time = datetime(2024, 1, 15, 14, 30, 0, tzinfo=UTC)
 
         # ACT: Format enhanced message
         message = format_enhanced_slack_message([domain_info], check_time)
 
-        # ASSERT: Should handle partial registrant info
+        # ASSERT: Should handle partial registrant info by showing only available data
         assert "Registrant: John Doe" in message
-        assert "Registrar: Not available" in message
+        # Should NOT show missing fields
+        assert "Registrar:" not in message
+        assert "Expires:" not in message
+        assert "Created:" not in message
+
+
+class TestImprovedSlackMessages:
+    """Test improved Slack message formatting with user requirements."""
+
+    def test_format_enhanced_message_uses_new_york_time(self) -> None:
+        """Test that messages use New York local time instead of UTC."""
+        # ARRANGE: Create domain info
+        domain_info = DomainInfo(
+            domain_name="example.com",
+            is_available=True,
+            problematic_statuses=[],
+        )
+        # Use a specific UTC time that would be different in ET
+        utc_check_time = datetime(
+            2024, 6, 15, 20, 30, 0, tzinfo=UTC
+        )  # 8:30 PM UTC
+
+        # ACT: Format the enhanced message
+        result = format_enhanced_slack_message([domain_info], utc_check_time)
+
+        # ASSERT: Should show New York time (4:30 PM EDT in June)
+        assert "4:30 PM EDT" in result
+        assert "Jun 15, 2024" in result
+        assert "UTC" not in result
+
+    def test_format_enhanced_message_omits_missing_fields(self) -> None:
+        """Test that missing fields are omitted rather than showing 'Not available'."""
+        # ARRANGE: Create domain info with minimal data (no expiration, registrant, etc.)
+        domain_info = DomainInfo(
+            domain_name="minimal.com",
+            is_available=False,
+            problematic_statuses=[],
+            expiration_date=None,
+            creation_date=None,
+            registrant_name=None,
+            registrant_organization=None,
+            registrar_name=None,
+        )
+        check_time = datetime(2024, 1, 15, 14, 30, 0, tzinfo=UTC)
+
+        # ACT: Format the enhanced message
+        result = format_enhanced_slack_message([domain_info], check_time)
+
+        # ASSERT: Should not contain "Not available" for any field
+        assert "Not available" not in result
+        assert "Expires:" not in result
+        assert "Created:" not in result
+        assert "Registrant:" not in result
+        assert "Registrar:" not in result
+
+    def test_format_enhanced_message_shows_multiple_status_codes(self) -> None:
+        """Test that multiple status codes are properly displayed."""
+        # ARRANGE: Create domain info with multiple problematic statuses
+        domain_info = DomainInfo(
+            domain_name="problematic.com",
+            is_available=False,
+            problematic_statuses=["pendingDelete", "serverHold", "clientHold"],
+        )
+        check_time = datetime(2024, 1, 15, 14, 30, 0, tzinfo=UTC)
+
+        # ACT: Format the enhanced message
+        result = format_enhanced_slack_message([domain_info], check_time)
+
+        # ASSERT: Should show all status codes
+        assert "pendingDelete" in result
+        assert "serverHold" in result
+        assert "clientHold" in result
+        assert "Status: Problematic" in result
+
+    def test_format_enhanced_message_includes_available_fields_only(self) -> None:
+        """Test that only available metadata fields are included."""
+        # ARRANGE: Create domain info with partial data
+        domain_info = DomainInfo(
+            domain_name="partial.com",
+            is_available=False,
+            problematic_statuses=[],
+            expiration_date=datetime(2025, 12, 31, 23, 59, 59, tzinfo=UTC),
+            creation_date=None,  # Missing
+            registrant_name="John Doe",
+            registrant_organization=None,  # Missing
+            registrar_name=None,  # Missing
+        )
+        check_time = datetime(2024, 1, 15, 14, 30, 0, tzinfo=UTC)
+
+        # ACT: Format the enhanced message
+        result = format_enhanced_slack_message([domain_info], check_time)
+
+        # ASSERT: Should include expiration and registrant, but not creation or registrar
+        assert "Expires:" in result
+        assert "Dec 31, 2025" in result
+        assert "Registrant: John Doe" in result
+        assert "Created:" not in result
+        assert "Registrar:" not in result
+
+    def test_format_enhanced_message_improved_visual_formatting(self) -> None:
+        """Test that the message has improved visual formatting for easier scanning."""
+        # ARRANGE: Create domain info
+        domain_info = DomainInfo(
+            domain_name="visual.com",
+            is_available=True,
+            problematic_statuses=[],
+        )
+        check_time = datetime(2024, 1, 15, 14, 30, 0, tzinfo=UTC)
+
+        # ACT: Format the enhanced message
+        result = format_enhanced_slack_message([domain_info], check_time)
+
+        # ASSERT: Should have better formatting structure
+        assert "🔍" in result  # Magnifying glass emoji for header
+        assert "✅" in result  # Check mark for available domain
+        assert "**visual.com**" in result  # Bold domain name
+        # Should have clean section separation
+        lines = result.split("\n")
+        assert any(line.strip() == "" for line in lines)  # Has blank lines for spacing

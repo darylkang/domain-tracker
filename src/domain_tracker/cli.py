@@ -132,18 +132,24 @@ def check_single_domain_command(
             elif domain_info.is_available:
                 print("✅ Available")
             elif domain_info.problematic_statuses:
-                print(f"⚠️ Problematic status: {', '.join(domain_info.problematic_statuses)}")
+                print(
+                    f"⚠️ Problematic status: {', '.join(domain_info.problematic_statuses)}"
+                )
             else:
                 print("❌ Unavailable")
 
             # Send enhanced Slack message
             if not domain_info.has_error:
                 check_time = datetime.utcnow()
-                enhanced_message = format_enhanced_slack_message([domain_info], check_time)
+                enhanced_message = format_enhanced_slack_message(
+                    [domain_info], check_time
+                )
                 _send_slack_alert_safely(enhanced_message, settings)
             else:
                 # Send simple error message for API errors
-                error_message = f"🚨 Error checking {domain}: {domain_info.error_message}"
+                error_message = (
+                    f"🚨 Error checking {domain}: {domain_info.error_message}"
+                )
                 _send_slack_alert_safely(error_message, settings)
         else:
             # Use legacy simple format
@@ -220,7 +226,9 @@ def check_domains(
                         print("✅ Available")
                         available_domains.append(domain)
                     elif domain_info.problematic_statuses:
-                        print(f"⚠️ Problematic status: {', '.join(domain_info.problematic_statuses)}")
+                        print(
+                            f"⚠️ Problematic status: {', '.join(domain_info.problematic_statuses)}"
+                        )
                     else:
                         print("❌ Unavailable")
                 else:
@@ -256,14 +264,16 @@ def check_domains(
         if enhanced_slack and domain_infos:
             # Only send if there are available domains, errors, or notify_all is enabled
             should_notify = (
-                any(info.is_available for info in domain_infos) or
-                any(info.has_error for info in domain_infos) or
-                notify_all
+                any(info.is_available for info in domain_infos)
+                or any(info.has_error for info in domain_infos)
+                or notify_all
             )
 
             if should_notify:
                 check_time = datetime.utcnow()
-                enhanced_message = format_enhanced_slack_message(domain_infos, check_time)
+                enhanced_message = format_enhanced_slack_message(
+                    domain_infos, check_time
+                )
                 _send_slack_alert_safely(enhanced_message, settings)
 
         # Print summary

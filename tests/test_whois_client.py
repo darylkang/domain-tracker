@@ -435,10 +435,10 @@ class TestEnhancedDomainInfo:
                 "registrant": {
                     "name": "John Doe",
                     "organization": "Example Corp",
-                    "country": "US"
+                    "country": "US",
                 },
                 "nameServers": ["ns1.example.com", "ns2.example.com"],
-                "registrarName": "Example Registrar Inc."
+                "registrarName": "Example Registrar Inc.",
             }
         }
 
@@ -450,8 +450,12 @@ class TestEnhancedDomainInfo:
             assert domain_info.domain_name == "example.com"
             assert domain_info.is_available is True
             assert domain_info.problematic_statuses == []
-            assert domain_info.expiration_date == datetime(2024, 12, 31, 23, 59, 59, tzinfo=UTC)
-            assert domain_info.creation_date == datetime(2020, 1, 1, 0, 0, 0, tzinfo=UTC)
+            assert domain_info.expiration_date == datetime(
+                2024, 12, 31, 23, 59, 59, tzinfo=UTC
+            )
+            assert domain_info.creation_date == datetime(
+                2020, 1, 1, 0, 0, 0, tzinfo=UTC
+            )
             assert domain_info.registrant_name == "John Doe"
             assert domain_info.registrant_organization == "Example Corp"
             assert domain_info.registrar_name == "Example Registrar Inc."
@@ -474,9 +478,9 @@ class TestEnhancedDomainInfo:
                 "registrant": {
                     "name": "Domain Administrator",
                     "organization": "Google LLC",
-                    "country": "US"
+                    "country": "US",
                 },
-                "registrarName": "MarkMonitor Inc."
+                "registrarName": "MarkMonitor Inc.",
             }
         }
 
@@ -487,7 +491,9 @@ class TestEnhancedDomainInfo:
             # ASSERT: Should return unavailable domain with registrant info
             assert domain_info.domain_name == "google.com"
             assert domain_info.is_available is False
-            assert domain_info.expiration_date == datetime(2025, 9, 14, 4, 0, 0, tzinfo=UTC)
+            assert domain_info.expiration_date == datetime(
+                2025, 9, 14, 4, 0, 0, tzinfo=UTC
+            )
             assert domain_info.registrant_name == "Domain Administrator"
             assert domain_info.registrant_organization == "Google LLC"
             assert domain_info.registrar_name == "MarkMonitor Inc."
@@ -508,8 +514,8 @@ class TestEnhancedDomainInfo:
                 "createdDate": "2020-05-01T10:30:00Z",
                 "registrant": {
                     "name": "Previous Owner",
-                    "organization": "Old Company Inc."
-                }
+                    "organization": "Old Company Inc.",
+                },
             }
         }
 
@@ -535,7 +541,7 @@ class TestEnhancedDomainInfo:
             "DomainInfo": {
                 "domainAvailability": "AVAILABLE",
                 "domainName": "minimal-example.com",
-                "status": ["ok"]
+                "status": ["ok"],
             }
         }
 

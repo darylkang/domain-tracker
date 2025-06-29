@@ -8,6 +8,7 @@ become available for registration with robust error handling.
 from __future__ import annotations
 
 import logging
+import zoneinfo
 from datetime import datetime
 
 import requests
@@ -91,16 +92,17 @@ def format_enhanced_slack_message(
     """
     Format enhanced Slack message with rich domain information.
 
-    Creates a comprehensive message including timestamp, detailed domain
-    status, registrant information, and priority notifications for
-    available domains or system errors.
+    Creates a comprehensive message including timestamp in New York time,
+    detailed domain status, registrant information (when available),
+    and priority notifications for available domains or system errors.
+    Only shows fields that have actual data, omitting empty/null fields.
 
     Args:
         domain_infos: List of domain information objects
         check_time: UTC timestamp when the check was performed
 
     Returns:
-        Formatted Slack message string
+        Formatted Slack message string with improved visual layout
     """
     # Determine if we need priority notification
     has_available = any(info.is_available for info in domain_infos)
@@ -114,30 +116,44 @@ def format_enhanced_slack_message(
     if needs_priority:
         lines.append("<!channel> 🚨 **ATTENTION REQUIRED**")
 
-    # Add header with timestamp
-    timestamp_str = check_time.strftime("%Y-%m-%d %H:%M:%S UTC")
+    # Convert UTC time to New York time and format nicely
+    ny_timezone = zoneinfo.ZoneInfo("America/New_York")
+    ny_time = check_time.astimezone(ny_timezone)
+
+    # Format with timezone abbreviation (EDT/EST)
+    time_str = ny_time.strftime("%-I:%M %p %Z")
+    date_str = ny_time.strftime("%b %-d, %Y")
+    timestamp_str = f"{time_str} • {date_str}"
+
+    # Add header with New York timestamp
     lines.append(f"🔍 **Domain Check Summary** - {timestamp_str}")
     lines.append("")
 
     # Add domain details
     for domain_info in domain_infos:
-        lines.extend(_format_domain_details(domain_info))
+        lines.extend(_format_domain_details_improved(domain_info))
         lines.append("")  # Blank line between domains
 
     # Add summary statistics if multiple domains
     if len(domain_infos) > 1:
         available_count = sum(1 for info in domain_infos if info.is_available)
         error_count = sum(1 for info in domain_infos if info.has_error)
-        lines.append(f"📊 **Summary:** {available_count} available, "
-                    f"{len(domain_infos) - available_count - error_count} unavailable, "
-                    f"{error_count} errors")
+        unavailable_count = len(domain_infos) - available_count - error_count
+
+        lines.append(
+            f"📊 **Summary:** {available_count} available • "
+            f"{unavailable_count} unavailable • {error_count} errors"
+        )
 
     return "\n".join(lines)
 
 
-def _format_domain_details(domain_info: DomainInfo) -> list[str]:
+def _format_domain_details_improved(domain_info: DomainInfo) -> list[str]:
     """
-    Format detailed information for a single domain.
+    Format detailed information for a single domain with improved layout.
+
+    Only includes fields that have actual data, omitting null/empty fields
+    to provide a cleaner, more scannable format.
 
     Args:
         domain_info: Domain information object
@@ -156,7 +172,9 @@ def _format_domain_details(domain_info: DomainInfo) -> list[str]:
         status_text = "Available"
     elif domain_info.problematic_statuses:
         icon = "⚠️"
-        status_text = f"Problematic ({', '.join(domain_info.problematic_statuses)})"
+        # Show all status codes for transparency
+        status_codes = ", ".join(domain_info.problematic_statuses)
+        status_text = f"Problematic ({status_codes})"
     else:
         icon = "❌"
         status_text = "Unavailable"
@@ -169,38 +187,42 @@ def _format_domain_details(domain_info: DomainInfo) -> list[str]:
     if domain_info.has_error:
         return lines
 
-    # Expiration date
+    # Only include fields that have actual data
+
+    # Expiration date (if available)
     if domain_info.expiration_date:
-        exp_str = domain_info.expiration_date.strftime("%Y-%m-%d %H:%M:%S UTC")
+        ny_timezone = zoneinfo.ZoneInfo("America/New_York")
+        exp_ny = domain_info.expiration_date.astimezone(ny_timezone)
+        exp_str = exp_ny.strftime("%b %-d, %Y")
         lines.append(f"  • Expires: {exp_str}")
-    else:
-        lines.append("  • Expires: Not available")
 
-    # Creation date
+    # Creation date (if available)
     if domain_info.creation_date:
-        created_str = domain_info.creation_date.strftime("%Y-%m-%d %H:%M:%S UTC")
+        ny_timezone = zoneinfo.ZoneInfo("America/New_York")
+        created_ny = domain_info.creation_date.astimezone(ny_timezone)
+        created_str = created_ny.strftime("%b %-d, %Y")
         lines.append(f"  • Created: {created_str}")
-    else:
-        lines.append("  • Created: Not available")
 
-    # Registrant information
+    # Registrant information (if available)
     if domain_info.registrant_name:
         registrant = domain_info.registrant_name
         if domain_info.registrant_organization:
             registrant += f" ({domain_info.registrant_organization})"
         lines.append(f"  • Registrant: {registrant}")
-    else:
-        lines.append("  • Registrant: Not available")
 
-    # Registrar
+    # Registrar (if available)
     if domain_info.registrar_name:
         lines.append(f"  • Registrar: {domain_info.registrar_name}")
-    else:
-        lines.append("  • Registrar: Not available")
 
-    # Name servers (only if available and not empty)
-    if domain_info.name_servers:
-        ns_list = ", ".join(domain_info.name_servers)
-        lines.append(f"  • Name Servers: {ns_list}")
+    # Name servers (if available and not empty)
+    if domain_info.name_servers and len(domain_info.name_servers) > 0:
+        if len(domain_info.name_servers) <= 2:
+            ns_str = ", ".join(domain_info.name_servers)
+            lines.append(f"  • Name Servers: {ns_str}")
+        else:
+            # Show count if many name servers
+            lines.append(
+                f"  • Name Servers: {len(domain_info.name_servers)} configured"
+            )
 
     return lines
