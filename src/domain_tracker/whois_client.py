@@ -23,7 +23,7 @@ MAX_DOMAIN_LENGTH = 253
 # Domain statuses that indicate a domain is not truly available
 PROBLEMATIC_DOMAIN_STATUSES = {
     "pendingdelete",
-    "redemptionperiod", 
+    "redemptionperiod",
     "clienthold",
     "serverhold",
     "renewperiod",
@@ -55,7 +55,9 @@ def check_domain_availability(domain: str, settings: Settings | None = None) -> 
     return is_available
 
 
-def check_domain_status_detailed(domain: str, settings: Settings | None = None) -> tuple[bool, list[str]]:
+def check_domain_status_detailed(
+    domain: str, settings: Settings | None = None
+) -> tuple[bool, list[str]]:
     """
     Check domain availability and return detailed status information.
 
@@ -145,11 +147,11 @@ def _extract_problematic_statuses(domain_statuses: list[str] | None) -> list[str
         return []
 
     problematic_found = []
-    
+
     for status in domain_statuses:
         # Normalize status to lowercase and remove spaces for comparison
         normalized_status = str(status).lower().replace(" ", "")
-        
+
         if normalized_status in PROBLEMATIC_DOMAIN_STATUSES:
             # Add the original normalized camelCase format for consistent reporting
             problematic_found.append(_normalize_status_name(normalized_status))
@@ -171,12 +173,12 @@ def _normalize_status_name(status: str) -> str:
     status_mapping = {
         "pendingdelete": "pendingDelete",
         "redemptionperiod": "redemptionPeriod",
-        "clienthold": "clientHold", 
+        "clienthold": "clientHold",
         "serverhold": "serverHold",
         "renewperiod": "renewPeriod",
         "transferperiod": "transferPeriod",
     }
-    
+
     return status_mapping.get(status.lower().replace(" ", ""), status)
 
 

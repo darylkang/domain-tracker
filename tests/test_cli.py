@@ -42,7 +42,10 @@ class TestCLIDomainsCommand:
         """Test that check-domains loads domains and checks each one."""
         # ARRANGE: Mock domain loading and availability checking
         mock_load.return_value = ["example.com", "test.org"]
-        mock_check.side_effect = [(True, []), (False, [])]  # First available, second not
+        mock_check.side_effect = [
+            (True, []),
+            (False, []),
+        ]  # First available, second not
 
         # ACT: Run check-domains command
         result = self.runner.invoke(app, ["check-domains"])
@@ -374,7 +377,7 @@ class TestCLIBulkProblematicStatuses:
         mock_check.side_effect = [
             (True, []),  # Truly available
             (False, ["pendingDelete"]),  # Problematic status
-            (False, [])  # Genuinely unavailable
+            (False, []),  # Genuinely unavailable
         ]
 
         # ACT: Run check-domains command
@@ -385,7 +388,7 @@ class TestCLIBulkProblematicStatuses:
         assert "✅ Available" in result.stdout  # available.com
         assert "⚠️ Problematic status: pendingDelete" in result.stdout  # problematic.com
         assert "❌ Unavailable" in result.stdout  # unavailable.com
-        
+
         # Should only send alert for truly available domain
         mock_slack.assert_called_once_with("✅ Domain available: available.com", ANY)
 

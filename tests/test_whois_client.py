@@ -14,7 +14,10 @@ import requests
 from requests.exceptions import ConnectionError, Timeout
 
 from domain_tracker.settings import Settings
-from domain_tracker.whois_client import check_domain_availability, check_domain_status_detailed
+from domain_tracker.whois_client import (
+    check_domain_availability,
+    check_domain_status_detailed,
+)
 
 
 class TestWhoisClient:
@@ -224,7 +227,7 @@ class TestWhoisClient:
         mock_response.json.return_value = {
             "DomainInfo": {
                 "domainAvailability": "AVAILABLE",
-                "status": ["pendingDelete"]
+                "status": ["pendingDelete"],
             }
         }
 
@@ -245,7 +248,7 @@ class TestWhoisClient:
         mock_response.json.return_value = {
             "DomainInfo": {
                 "domainAvailability": "AVAILABLE",
-                "status": ["redemptionPeriod"]
+                "status": ["redemptionPeriod"],
             }
         }
 
@@ -264,10 +267,7 @@ class TestWhoisClient:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "DomainInfo": {
-                "domainAvailability": "AVAILABLE",
-                "status": ["clientHold"]
-            }
+            "DomainInfo": {"domainAvailability": "AVAILABLE", "status": ["clientHold"]}
         }
 
         with patch("requests.get", return_value=mock_response):
@@ -285,10 +285,7 @@ class TestWhoisClient:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "DomainInfo": {
-                "domainAvailability": "AVAILABLE",
-                "status": ["serverHold"]
-            }
+            "DomainInfo": {"domainAvailability": "AVAILABLE", "status": ["serverHold"]}
         }
 
         with patch("requests.get", return_value=mock_response):
@@ -306,10 +303,7 @@ class TestWhoisClient:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "DomainInfo": {
-                "domainAvailability": "AVAILABLE",
-                "status": ["renewPeriod"]
-            }
+            "DomainInfo": {"domainAvailability": "AVAILABLE", "status": ["renewPeriod"]}
         }
 
         with patch("requests.get", return_value=mock_response):
@@ -329,7 +323,7 @@ class TestWhoisClient:
         mock_response.json.return_value = {
             "DomainInfo": {
                 "domainAvailability": "AVAILABLE",
-                "status": ["transferPeriod"]
+                "status": ["transferPeriod"],
             }
         }
 
@@ -350,7 +344,7 @@ class TestWhoisClient:
         mock_response.json.return_value = {
             "DomainInfo": {
                 "domainAvailability": "AVAILABLE",
-                "status": ["pendingDelete", "serverHold", "clientHold"]
+                "status": ["pendingDelete", "serverHold", "clientHold"],
             }
         }
 
@@ -371,7 +365,7 @@ class TestWhoisClient:
         mock_response.json.return_value = {
             "DomainInfo": {
                 "domainAvailability": "AVAILABLE",
-                "status": ["ok", "inactive"]
+                "status": ["ok", "inactive"],
             }
         }
 
@@ -406,7 +400,7 @@ class TestWhoisClient:
         mock_response.json.return_value = {
             "DomainInfo": {
                 "domainAvailability": "AVAILABLE",
-                "status": ["PendingDelete", "ServerHold"]
+                "status": ["PendingDelete", "ServerHold"],
             }
         }
 
@@ -429,15 +423,14 @@ class TestDomainStatusDetailed:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "DomainInfo": {
-                "domainAvailability": "AVAILABLE",
-                "status": ["ok"]
-            }
+            "DomainInfo": {"domainAvailability": "AVAILABLE", "status": ["ok"]}
         }
 
         with patch("requests.get", return_value=mock_response):
             # ACT: Check detailed domain status
-            is_available, problematic_statuses = check_domain_status_detailed("available.com")
+            is_available, problematic_statuses = check_domain_status_detailed(
+                "available.com"
+            )
 
             # ASSERT: Should return True with empty problematic statuses
             assert is_available is True
@@ -453,13 +446,15 @@ class TestDomainStatusDetailed:
         mock_response.json.return_value = {
             "DomainInfo": {
                 "domainAvailability": "AVAILABLE",
-                "status": ["pendingDelete", "ok"]
+                "status": ["pendingDelete", "ok"],
             }
         }
 
         with patch("requests.get", return_value=mock_response):
             # ACT: Check detailed domain status
-            is_available, problematic_statuses = check_domain_status_detailed("problematic.com")
+            is_available, problematic_statuses = check_domain_status_detailed(
+                "problematic.com"
+            )
 
             # ASSERT: Should return False with problematic status listed
             assert is_available is False
@@ -475,13 +470,15 @@ class TestDomainStatusDetailed:
         mock_response.json.return_value = {
             "DomainInfo": {
                 "domainAvailability": "AVAILABLE",
-                "status": ["pendingDelete", "serverHold", "ok", "clientHold"]
+                "status": ["pendingDelete", "serverHold", "ok", "clientHold"],
             }
         }
 
         with patch("requests.get", return_value=mock_response):
             # ACT: Check detailed domain status
-            is_available, problematic_statuses = check_domain_status_detailed("multiple-problems.com")
+            is_available, problematic_statuses = check_domain_status_detailed(
+                "multiple-problems.com"
+            )
 
             # ASSERT: Should return False with all problematic statuses
             assert is_available is False
@@ -501,13 +498,15 @@ class TestDomainStatusDetailed:
         mock_response.json.return_value = {
             "DomainInfo": {
                 "domainAvailability": "AVAILABLE",
-                "status": ["PendingDelete", "ServerHold"]
+                "status": ["PendingDelete", "ServerHold"],
             }
         }
 
         with patch("requests.get", return_value=mock_response):
             # ACT: Check detailed domain status
-            is_available, problematic_statuses = check_domain_status_detailed("mixed-case.com")
+            is_available, problematic_statuses = check_domain_status_detailed(
+                "mixed-case.com"
+            )
 
             # ASSERT: Should return normalized status names
             assert is_available is False
@@ -522,15 +521,14 @@ class TestDomainStatusDetailed:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "DomainInfo": {
-                "domainAvailability": "UNAVAILABLE",
-                "status": ["ok"]
-            }
+            "DomainInfo": {"domainAvailability": "UNAVAILABLE", "status": ["ok"]}
         }
 
         with patch("requests.get", return_value=mock_response):
             # ACT: Check detailed domain status
-            is_available, problematic_statuses = check_domain_status_detailed("unavailable.com")
+            is_available, problematic_statuses = check_domain_status_detailed(
+                "unavailable.com"
+            )
 
             # ASSERT: Should return False with empty problematic statuses
             assert is_available is False
@@ -549,7 +547,9 @@ class TestDomainStatusDetailed:
 
         with patch("requests.get", return_value=mock_response):
             # ACT: Check detailed domain status
-            is_available, problematic_statuses = check_domain_status_detailed("no-status.com")
+            is_available, problematic_statuses = check_domain_status_detailed(
+                "no-status.com"
+            )
 
             # ASSERT: Should return True with empty problematic statuses
             assert is_available is True
@@ -562,7 +562,9 @@ class TestDomainStatusDetailed:
         # ARRANGE: Mock network error
         with patch("requests.get", side_effect=ConnectionError("Network error")):
             # ACT: Check detailed domain status
-            is_available, problematic_statuses = check_domain_status_detailed("error.com")
+            is_available, problematic_statuses = check_domain_status_detailed(
+                "error.com"
+            )
 
             # ASSERT: Should return False with empty problematic statuses
             assert is_available is False

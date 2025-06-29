@@ -15,7 +15,9 @@ import typer
 from domain_tracker.domain_management import load_domains
 from domain_tracker.settings import Settings
 from domain_tracker.slack_notifier import send_slack_alert
-from domain_tracker.whois_client import check_domain_availability, check_domain_status_detailed
+from domain_tracker.whois_client import (
+    check_domain_status_detailed,
+)
 
 # Message templates
 AVAILABLE_DOMAIN_MESSAGE = "✅ Domain available: {domain}"
@@ -56,7 +58,9 @@ def _load_settings() -> Settings:
         raise typer.Exit(code=1) from e
 
 
-def _get_enhanced_domain_message(domain: str, is_available: bool, problematic_statuses: list[str]) -> str:
+def _get_enhanced_domain_message(
+    domain: str, is_available: bool, problematic_statuses: list[str]
+) -> str:
     """Create enhanced domain status message based on detailed status information."""
     if not is_available:
         if problematic_statuses:
@@ -105,10 +109,14 @@ def check_single_domain_command(
         settings = _load_settings()
 
         print(f"🔍 Checking {domain}...")
-        is_available, problematic_statuses = check_domain_status_detailed(domain, settings)
+        is_available, problematic_statuses = check_domain_status_detailed(
+            domain, settings
+        )
 
         # Create enhanced message based on detailed status
-        message = _get_enhanced_domain_message(domain, is_available, problematic_statuses)
+        message = _get_enhanced_domain_message(
+            domain, is_available, problematic_statuses
+        )
         print(message)
         _send_slack_alert_safely(message, settings)
 
@@ -153,10 +161,14 @@ def check_domains(
         for domain in domains:
             try:
                 print(f"  Checking {domain}...", end=" ")
-                is_available, problematic_statuses = check_domain_status_detailed(domain, settings)
+                is_available, problematic_statuses = check_domain_status_detailed(
+                    domain, settings
+                )
 
                 # Create enhanced message for this domain
-                message = _get_enhanced_domain_message(domain, is_available, problematic_statuses)
+                message = _get_enhanced_domain_message(
+                    domain, is_available, problematic_statuses
+                )
 
                 if is_available:
                     print("✅ Available")
@@ -164,10 +176,12 @@ def check_domains(
                     _send_slack_alert_safely(message, settings)
                 else:
                     if problematic_statuses:
-                        print(f"⚠️ Problematic status: {', '.join(problematic_statuses)}")
+                        print(
+                            f"⚠️ Problematic status: {', '.join(problematic_statuses)}"
+                        )
                     else:
                         print("❌ Unavailable")
-                    
+
                     if notify_all:
                         _send_slack_alert_safely(message, settings)
 
