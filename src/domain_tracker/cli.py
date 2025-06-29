@@ -236,6 +236,17 @@ def check_domains(
         logging.basicConfig(level=logging.DEBUG)
         print("🔧 Debug mode enabled - will show raw API responses")
 
+    # Add logging for scheduled runs (GitHub Actions debugging)
+    if scheduled:
+        print("🤖 Scheduled run detected - trigger_type: scheduled")
+        print("🔧 Environment check:")
+        import os
+
+        api_key_status = "SET" if os.getenv("WHOIS_API_KEY") else "MISSING"
+        webhook_status = "SET" if os.getenv("SLACK_WEBHOOK_URL") else "MISSING"
+        print(f"   WHOIS_API_KEY: {api_key_status}")
+        print(f"   SLACK_WEBHOOK_URL: {webhook_status}")
+
     # Determine trigger type
     if scheduled and manual:
         print("❌ Error: Cannot specify both --scheduled and --manual flags")
@@ -266,6 +277,21 @@ def check_domains(
 
             if result.total_domains == 0:
                 print("⚠️  No domains found to check.")
+
+                # Send heartbeat notification if requested, even with no domains
+                if heartbeat:
+                    print("💓 Sending heartbeat notification for empty domain list...")
+                    notification_sent = service.send_slack_notification(
+                        [], trigger_type=trigger_type, notify_all=True
+                    )
+                    if notification_sent:
+                        trigger_desc = "scheduled" if scheduled else "manual"
+                        print(
+                            f"💓 Heartbeat notification sent ({trigger_desc} trigger)"
+                        )
+                    else:
+                        print("⚠️  Heartbeat requested but notification failed to send")
+
                 return
 
             # Display progress for each domain with consistent formatting

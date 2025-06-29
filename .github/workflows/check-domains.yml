@@ -38,6 +38,16 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e .
 
+      - name: Verify installation
+        run: |
+          echo "=== Debugging Installation ==="
+          which vibe || echo "vibe command not found in PATH"
+          vibe --version || echo "vibe --version failed"
+          echo "PATH: $PATH"
+          echo "Installed packages:"
+          pip list | grep -E "(domain|typer)" || echo "No matching packages found"
+          echo "=== End Debug Info ==="
+
       - name: Check domain availability (Scheduled)
         if: github.event_name == 'schedule'
         env:
@@ -46,6 +56,11 @@ jobs:
         run: |
           # Run scheduled domain check with heartbeat
           echo "Running scheduled domain check..."
+          echo "Trigger: ${{ github.event_name }}"
+          echo "Secrets check:"
+          echo "  WHOIS_API_KEY: ${WHOIS_API_KEY:+SET}"
+          echo "  SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:+SET}"
+
           if ! vibe check-domains --scheduled --heartbeat; then
             echo "Domain check failed with exit code $?"
             exit 1
@@ -60,6 +75,12 @@ jobs:
         run: |
           # Run manual domain check
           echo "Running manual domain check..."
+          echo "Trigger: ${{ github.event_name }}"
+          echo "Heartbeat input: ${{ github.event.inputs.send_heartbeat }}"
+          echo "Secrets check:"
+          echo "  WHOIS_API_KEY: ${WHOIS_API_KEY:+SET}"
+          echo "  SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:+SET}"
+
           HEARTBEAT_FLAG=""
           if [ "${{ github.event.inputs.send_heartbeat }}" = "true" ]; then
             HEARTBEAT_FLAG="--heartbeat"
@@ -70,6 +91,19 @@ jobs:
             exit 1
           fi
           echo "Manual domain check completed successfully"
+
+      - name: Send completion notification (Scheduled only)
+        if: github.event_name == 'schedule' && success()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          # Send a simple confirmation that the workflow ran successfully
+          # This helps verify the schedule is working even if the main command doesn't send notifications
+          curl -X POST -H 'Content-type: application/json' \
+            --data "{
+              \"text\": \"✅ GitHub Actions: Scheduled domain check completed\\n\\n🕐 Workflow executed at: $(date -u +'%Y-%m-%d %H:%M:%S UTC')\\n📊 This message confirms the scheduled job is running correctly.\\n\\n_This is a fallback notification to verify automation health._\"
+            }" \
+            $SLACK_WEBHOOK_URL || echo "Failed to send completion notification"
 
       - name: Notify on failure
         if: failure()

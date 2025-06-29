@@ -1,173 +1,293 @@
-# GitHub Actions Scheduled Domain Checking
+# GitHub Actions Scheduled Domain Checking Setup Guide
 
-This document explains how the automated domain checking system works in GitHub Actions and how to test and troubleshoot it.
+This document provides a comprehensive guide for setting up, monitoring, and troubleshooting the automated domain availability checking system using GitHub Actions.
 
-## 🔄 **How It Works**
+## Overview
 
-The system uses GitHub Actions to automatically check domain availability every hour and send Slack notifications when domains become available or when errors occur.
+The system runs automatically every hour to check domain availability and sends Slack notifications when domains become available. It also provides heartbeat notifications to confirm the automation is working correctly.
 
-### Files Involved
-- `.github/workflows/check-domains.yml` - Main workflow configuration
-- `domains.txt` - List of domains to monitor
-- `vibe check-domains` CLI command - Core checking logic
+## Configuration
 
-## ⏰ **Schedule Configuration**
+### Required Secrets
 
-### Automatic Schedule
-- **Frequency**: Every hour at minute 0 (`0 * * * *`)
-- **Trigger Type**: `scheduled`
-- **Heartbeat**: Enabled (sends notification even when no domains available)
-- **Command**: `vibe check-domains --scheduled --heartbeat`
+Configure these secrets in your GitHub repository at `Settings > Secrets and variables > Actions`:
 
-### Manual Triggers
-- **GitHub UI**: Actions tab → "Automated Domain Availability Checker" → "Run workflow"
-- **Trigger Type**: `manual`
-- **Heartbeat**: Optional (configurable via UI checkbox)
-- **Command**: `vibe check-domains --manual [--heartbeat]`
+- **`WHOIS_API_KEY`**: Your WHOIS API key for domain lookups
+- **`SLACK_WEBHOOK_URL`**: Your Slack incoming webhook URL for notifications
 
-## 📢 **Notification Behavior**
+### Workflow Schedule
+
+The automated check runs **every hour** at minute 0 (e.g., 12:00, 1:00, 2:00, etc.).
+
+**Cron Schedule:** `0 * * * *`
+
+To modify the schedule, edit `.github/workflows/check-domains.yml`:
+
+```yaml
+schedule:
+  # Run every hour at minute 0
+  - cron: '0 * * * *'
+```
+
+**Common Schedule Examples:**
+- Every 30 minutes: `'*/30 * * * *'`
+- Every 2 hours: `'0 */2 * * *'`
+- Daily at 9 AM UTC: `'0 9 * * *'`
+- Weekdays only at 9 AM UTC: `'0 9 * * 1-5'`
+
+## Notification Behavior
 
 ### When Notifications Are Sent
 
-| Scenario | Scheduled Run | Manual Run | Manual Run + Heartbeat |
-|----------|---------------|------------|------------------------|
-| Domains available | ✅ Yes | ✅ Yes | ✅ Yes |
-| API/System errors | ✅ Yes | ✅ Yes | ✅ Yes |
-| No domains available | ✅ Yes (heartbeat) | ❌ No | ✅ Yes (heartbeat) |
-| Empty domains.txt | ✅ Yes (heartbeat) | ❌ No | ✅ Yes (heartbeat) |
-
-### Notification Content
-- **Header**: Shows trigger type ("Scheduled hourly check" vs "Manual CLI Check")
-- **Domain Details**: Status, expiration dates, registrar info
-- **Summary**: Count of available/unavailable domains
-- **Timestamp**: New York timezone for consistency
-
-## 🧪 **Testing the System**
-
-### 1. Test Manual Trigger (GitHub UI)
-1. Go to your repository on GitHub
-2. Click **Actions** tab
-3. Select **"Automated Domain Availability Checker"**
-4. Click **"Run workflow"**
-5. Choose **"Send heartbeat notification"**: `true`
-6. Click **"Run workflow"**
-7. Check Slack for notification within ~2 minutes
-
-### 2. Test Local Commands
-```bash
-# Test scheduled mode with heartbeat (simulates GitHub Actions)
-vibe check-domains --scheduled --heartbeat
-
-# Test manual mode without heartbeat (normal CLI usage)
-vibe check-domains --manual
-
-# Test manual mode with heartbeat
-vibe check-domains --manual --heartbeat
-
-# Test with debug output
-vibe check-domains --scheduled --heartbeat --debug
-```
-
-### 3. Verify Workflow Logs
-1. Go to **Actions** tab in GitHub
-2. Click on the latest workflow run
-3. Click **"Check Domain Availability"** job
-4. Review logs for:
-   - Domain check results
-   - Notification status
-   - Any error messages
-
-## 🔧 **Troubleshooting**
-
-### No Slack Notifications Received
-
-1. **Check GitHub Secrets**
-   ```
-   Settings → Secrets and variables → Actions
-   Verify these secrets exist:
-   - WHOIS_API_KEY (your WhoisAPI.com key)
-   - SLACK_WEBHOOK_URL (your Slack webhook URL)
-   ```
-
-2. **Test Slack Webhook**
-   ```bash
-   # Test webhook manually
-   curl -X POST -H 'Content-type: application/json' \
-     --data '{"text":"Test from curl"}' \
-     YOUR_SLACK_WEBHOOK_URL
-   ```
-
-3. **Check Workflow Logs**
-   - Look for "Domain check failed with exit code X"
-   - Check for API key or webhook URL issues
-   - Verify domain parsing errors
-
-### Scheduled Jobs Not Running
-
-1. **Verify Cron Syntax**
-   - Current: `0 * * * *` (every hour at minute 0)
-   - Use [Crontab Guru](https://crontab.guru/) to verify
-
-2. **Check Repository Activity**
-   - GitHub may disable workflows on inactive repositories
-   - Make a commit to reactivate if needed
-
-3. **Review GitHub Actions Limits**
-   - Free tier: 2,000 minutes/month
-   - Check your usage in Settings → Billing
-
-### Webhook URL Format Issues
-
-Ensure your Slack webhook URL follows this format:
-```
-https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX
-```
-
-## 🚨 **Error Notifications**
-
-If the workflow fails completely, a failure notification is automatically sent to Slack with:
-- Error details
-- GitHub Actions run link
-- Timestamp
-- Repository information
-
-## 📋 **Monitoring Health**
+| Scenario | Regular Mode | Heartbeat Mode |
+|----------|-------------|----------------|
+| ✅ Available domains found | ✅ Always | ✅ Always |
+| 🚨 System errors occurred | ✅ Always | ✅ Always |
+| 📭 No domains available | ❌ No notification | ✅ Sends heartbeat |
+| 📄 Empty domains.txt | ❌ No notification | ✅ Sends heartbeat |
 
 ### Heartbeat Notifications
-- **Purpose**: Verify the system is running even when no domains are available
-- **Content**: Shows "Scheduled check completed. No available domains."
-- **Frequency**: Every hour (for scheduled runs)
 
-### Success Indicators
-- Regular hourly notifications in Slack
-- Workflow runs showing in GitHub Actions
-- No error notifications
+Heartbeat mode (`--heartbeat`) ensures you receive notifications even when no domains are available, confirming that the automation is running correctly.
 
-### Red Flags
-- No Slack notifications for several hours
-- Error notifications in Slack
-- Workflow runs failing in GitHub Actions
-- Missing recent workflow runs in Actions tab
+**Scheduled runs automatically use heartbeat mode** to provide monitoring visibility.
 
-## 🔄 **Updating the Schedule**
+## Testing the System
 
-To change the checking frequency, edit `.github/workflows/check-domains.yml`:
+### 1. Local Testing
 
-```yaml
-on:
-  schedule:
-    # Examples:
-    - cron: '0 */2 * * *'    # Every 2 hours
-    - cron: '0 9 * * *'      # Daily at 9 AM UTC
-    - cron: '0 9 * * 1-5'    # Weekdays at 9 AM UTC
+Test the CLI commands locally to verify functionality:
+
+```bash
+# Test scheduled run with heartbeat (simulates GitHub Actions)
+vibe check-domains --scheduled --heartbeat
+
+# Test manual run without heartbeat
+vibe check-domains --manual
+
+# Test with empty domains list
+mv domains.txt domains.txt.backup
+touch domains.txt
+vibe check-domains --scheduled --heartbeat
+mv domains.txt.backup domains.txt
 ```
 
-Remember: Times are in UTC, convert accordingly for your timezone.
+### 2. Manual GitHub Actions Testing
 
-## 🏃‍♂️ **Quick Verification Steps**
+Test the workflow manually through GitHub's web interface:
 
-1. **Check latest run**: Actions tab → Latest "Automated Domain Availability Checker"
-2. **Verify Slack**: Look for recent domain check notifications
-3. **Test manually**: Run workflow manually with heartbeat enabled
-4. **Check secrets**: Ensure WHOIS_API_KEY and SLACK_WEBHOOK_URL are set
-5. **Review logs**: Look for any error messages in workflow logs
+1. Go to `Actions` tab in your repository
+2. Select `Automated Domain Availability Checker`
+3. Click `Run workflow`
+4. Choose whether to send heartbeat notification
+5. Click `Run workflow`
+
+### 3. Expected Outputs
+
+**Console Output (Scheduled):**
+```
+🤖 Scheduled run detected - trigger_type: scheduled
+🔧 Environment check:
+   WHOIS_API_KEY: SET
+   SLACK_WEBHOOK_URL: SET
+💓 Heartbeat mode enabled - will send notification regardless of results
+🔍 Checking domain availability...
+⚠️  No domains found to check.
+💓 Sending heartbeat notification for empty domain list...
+💓 Heartbeat notification sent (scheduled trigger)
+```
+
+**Slack Message (Heartbeat):**
+```
+🤖 Domain Tracker: Scheduled Hourly Check
+
+📊 No domains currently being monitored
+
+🕐 Check completed at: 2024-01-15 14:00:00 UTC
+🔄 Trigger: Scheduled hourly check
+💓 This is a heartbeat notification confirming the automation is running correctly.
+```
+
+## Monitoring & Health Checks
+
+### 1. Workflow Status
+
+Monitor workflow health in several ways:
+
+- **Actions Tab**: Check recent workflow runs at `github.com/yourusername/domain-tracker/actions`
+- **Slack Notifications**: Receive both success and failure notifications
+- **Workflow Badges**: Add status badges to your README
+
+### 2. Understanding Logs
+
+**In GitHub Actions logs, look for:**
+
+✅ **Success Indicators:**
+- `🤖 Scheduled run detected`
+- `WHOIS_API_KEY: SET` and `SLACK_WEBHOOK_URL: SET`
+- `💓 Heartbeat notification sent (scheduled trigger)`
+- `Scheduled domain check completed successfully`
+
+❌ **Warning Signs:**
+- `WHOIS_API_KEY: MISSING` or `SLACK_WEBHOOK_URL: MISSING`
+- `vibe command not found in PATH`
+- `Domain check failed with exit code 1`
+- `Failed to send Slack notification`
+
+### 3. Fallback Monitoring
+
+The workflow includes a completion notification that confirms the job ran successfully:
+
+```
+✅ GitHub Actions: Scheduled domain check completed
+
+🕐 Workflow executed at: 2024-01-15 14:00:00 UTC
+📊 This message confirms the scheduled job is running correctly.
+
+This is a fallback notification to verify automation health.
+```
+
+## Troubleshooting
+
+### Issue: No Slack Messages Received
+
+**Possible Causes & Solutions:**
+
+1. **Missing API Secrets**
+   - Check: Repository Settings > Secrets and variables > Actions
+   - Verify: `WHOIS_API_KEY` and `SLACK_WEBHOOK_URL` are set
+   - Test: Run manual workflow to see error messages
+
+2. **Workflow Not Running**
+   - Check: `.github/workflows/check-domains.yml` exists in `main` branch
+   - Verify: Cron syntax is correct and quoted
+   - Test: Trigger manual run from Actions tab
+
+3. **Invalid Slack Webhook**
+   - Test: Send test message with `curl` command
+   - Verify: Webhook URL format and permissions
+   - Check: Slack app configuration
+
+### Issue: Workflow Fails
+
+**Common Error Scenarios:**
+
+1. **Installation Error:**
+   ```
+   ERROR: Could not find a version that satisfies the requirement domain-drop-tracker
+   ```
+   **Solution:** Check `pyproject.toml` and dependencies
+
+2. **Command Not Found:**
+   ```
+   vibe: command not found
+   ```
+   **Solution:** Verify package installation and console script setup
+
+3. **Exit Code 1:**
+   ```
+   Domain check failed with exit code 1
+   ```
+   **Solution:** Check logs for specific error messages
+
+### Issue: Scheduled Time Not Working
+
+**Diagnostics:**
+
+1. **Verify Cron Syntax:**
+   - Must be in quotes: `cron: '0 * * * *'`
+   - Uses UTC timezone
+   - GitHub Actions may have 5-10 minute delays
+
+2. **Check Repository Settings:**
+   - Actions must be enabled
+   - Workflow file must be in `main` branch
+   - No branch protection blocking Actions
+
+### Manual Debugging Steps
+
+1. **Check Workflow Configuration:**
+   ```bash
+   # Verify cron syntax
+   cat .github/workflows/check-domains.yml | grep -A2 schedule
+   ```
+
+2. **Test Local Environment:**
+   ```bash
+   # Test CLI functionality
+   export WHOIS_API_KEY="your-api-key"
+   export SLACK_WEBHOOK_URL="your-webhook-url"
+   vibe check-domains --scheduled --heartbeat --debug
+   ```
+
+3. **Verify GitHub Secrets:**
+   - Go to repository Settings > Secrets and variables > Actions
+   - Confirm secrets are set (you can't view values, only confirm they exist)
+
+4. **Check Recent Actions:**
+   - Go to Actions tab
+   - Look for failed or cancelled workflows
+   - Review logs for error details
+
+## Customization
+
+### Modifying Notification Content
+
+Edit the notification logic in `src/domain_tracker/core.py` and `src/domain_tracker/slack_notifier.py`.
+
+### Changing Check Frequency
+
+Modify the cron schedule in `.github/workflows/check-domains.yml`:
+
+```yaml
+schedule:
+  - cron: '0 */6 * * *'  # Every 6 hours
+```
+
+### Adding More Domains
+
+Add domains to `domains.txt`, one per line:
+
+```
+example.com
+anotherdomain.org
+coolsite.net
+```
+
+### Disabling Heartbeat
+
+To disable heartbeat notifications, remove the `--heartbeat` flag from the scheduled workflow step.
+
+## Security Considerations
+
+1. **API Key Protection**: Never commit API keys to the repository
+2. **Webhook Security**: Use specific Slack webhook URLs, not general bot tokens
+3. **Repository Access**: Limit who can modify GitHub Actions workflows
+4. **Secret Rotation**: Regularly rotate API keys and webhook URLs
+
+## Support
+
+If you encounter issues not covered in this guide:
+
+1. Check the GitHub Actions logs for detailed error messages
+2. Test the CLI commands locally with debug mode enabled
+3. Verify all required secrets are properly configured
+4. Review recent changes to workflow files or dependencies
+
+## Quick Reference
+
+**Manual Test Commands:**
+```bash
+# Local test with debugging
+vibe check-domains --scheduled --heartbeat --debug
+
+# Manual GitHub Actions trigger
+# Go to: github.com/yourusername/domain-tracker/actions
+# Click: "Run workflow" on "Automated Domain Availability Checker"
+```
+
+**Important Files:**
+- `.github/workflows/check-domains.yml` - Workflow configuration
+- `domains.txt` - List of domains to monitor
+- `src/domain_tracker/cli.py` - CLI command implementation
+- `src/domain_tracker/core.py` - Core checking logic
