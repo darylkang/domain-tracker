@@ -69,7 +69,10 @@ class DomainCheckService:
             )
 
     def check_multiple_domains(
-        self, domains: list[str] | None = None, use_enhanced_format: bool = True, debug: bool = False
+        self,
+        domains: list[str] | None = None,
+        use_enhanced_format: bool = True,
+        debug: bool = False,
     ) -> DomainCheckResult:
         """
         Check multiple domains for availability.
@@ -91,7 +94,9 @@ class DomainCheckService:
 
         for domain in domains:
             try:
-                domain_info = self.check_single_domain(domain, use_enhanced_format, debug=debug)
+                domain_info = self.check_single_domain(
+                    domain, use_enhanced_format, debug=debug
+                )
                 domain_infos.append(domain_info)
 
                 if domain_info.has_error:

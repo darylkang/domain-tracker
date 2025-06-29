@@ -30,30 +30,25 @@ PROBLEMATIC_DOMAIN_STATUSES = {
     "pendingdelete",
     "redemptionperiod",
     "renewperiod",
-
     # Hold statuses
     "clienthold",
     "serverhold",
-
     # Transfer related statuses
     "transferperiod",
     "pendingtransfer",
     "clienttransferprohibited",
     "servertransferprohibited",
-
     # Update/Delete restrictions that may indicate issues
     "clientdeleteprohibited",
     "serverdeleteprohibited",
     "clientupdateprohibited",
     "serverupdateprohibited",
-
     # Verification and registration issues
     "registrantverificationpending",
     "pendingverification",
     "pendingnotification",
     "addperiod",
     "autorenewperiod",
-
     # Additional potentially problematic statuses
     "pendingcreate",
     "pendingupdate",
@@ -67,8 +62,16 @@ PROBLEMATIC_DOMAIN_STATUSES = {
 
 # Additional keywords that might indicate problematic status in raw text
 PROBLEMATIC_KEYWORDS = {
-    "pending", "hold", "prohibited", "redemption", "grace",
-    "locked", "suspended", "expired", "quarantine", "frozen"
+    "pending",
+    "hold",
+    "prohibited",
+    "redemption",
+    "grace",
+    "locked",
+    "suspended",
+    "expired",
+    "quarantine",
+    "frozen",
 }
 
 
@@ -187,7 +190,9 @@ def check_domain_status_detailed(
         # If not marked as available, return False immediately
         if availability_status != "AVAILABLE":
             if debug:
-                print(f"🔧 DEBUG: Domain {domain} marked as {availability_status} by API")
+                print(
+                    f"🔧 DEBUG: Domain {domain} marked as {availability_status} by API"
+                )
             return False, []
 
         # Check for problematic statuses
@@ -198,7 +203,9 @@ def check_domain_status_detailed(
         problematic_statuses = _extract_problematic_statuses(domain_statuses)
 
         if debug and problematic_statuses:
-            print(f"🔧 DEBUG: Found problematic statuses for {domain}: {problematic_statuses}")
+            print(
+                f"🔧 DEBUG: Found problematic statuses for {domain}: {problematic_statuses}"
+            )
 
         # Domain is considered available only if it's marked available AND has no problematic statuses
         is_truly_available = len(problematic_statuses) == 0
@@ -253,11 +260,13 @@ def _extract_problematic_statuses(domain_statuses: list[str] | None) -> list[str
         normalized_status = status_str.lower()
 
         # Extract the actual status code from complex format
-        if '(' in normalized_status:
-            normalized_status = normalized_status.split('(')[0].strip()
+        if "(" in normalized_status:
+            normalized_status = normalized_status.split("(")[0].strip()
 
         # Remove common separators and extra whitespace
-        normalized_status = normalized_status.replace(' ', '').replace('-', '').replace('_', '')
+        normalized_status = (
+            normalized_status.replace(" ", "").replace("-", "").replace("_", "")
+        )
 
         # Check for exact matches first
         if normalized_status in PROBLEMATIC_DOMAIN_STATUSES:
@@ -418,14 +427,18 @@ def get_enhanced_domain_info(
         statuses = domain_data.get("status", [])
 
         if debug:
-            print(f"🔧 DEBUG: Enhanced check - Domain {domain} availability: {availability}")
+            print(
+                f"🔧 DEBUG: Enhanced check - Domain {domain} availability: {availability}"
+            )
             print(f"🔧 DEBUG: Enhanced check - Domain {domain} statuses: {statuses}")
 
         # Check for problematic statuses
         problematic_statuses = _get_problematic_statuses(statuses)
 
         if debug and problematic_statuses:
-            print(f"🔧 DEBUG: Enhanced check - Found problematic statuses for {domain}: {problematic_statuses}")
+            print(
+                f"🔧 DEBUG: Enhanced check - Found problematic statuses for {domain}: {problematic_statuses}"
+            )
 
         # Determine final availability (considering problematic statuses)
         is_available = availability == "AVAILABLE" and len(problematic_statuses) == 0
@@ -541,11 +554,13 @@ def _get_problematic_statuses(statuses: list[str] | None) -> list[str]:
         normalized_status = status_str.lower()
 
         # Extract the actual status code from complex format
-        if '(' in normalized_status:
-            normalized_status = normalized_status.split('(')[0].strip()
+        if "(" in normalized_status:
+            normalized_status = normalized_status.split("(")[0].strip()
 
         # Remove common separators and extra whitespace
-        normalized_status = normalized_status.replace(' ', '').replace('-', '').replace('_', '')
+        normalized_status = (
+            normalized_status.replace(" ", "").replace("-", "").replace("_", "")
+        )
 
         # Check for exact matches first
         if normalized_status in PROBLEMATIC_DOMAIN_STATUSES:
