@@ -31,12 +31,12 @@ class TestWhoisClient:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "DomainInfo": {"domainAvailability": "AVAILABLE"}
+            "WhoisRecord": {"domainAvailability": "AVAILABLE", "status": "ok"}
         }
 
         with patch("requests.get", return_value=mock_response):
             # ACT: Check domain availability
-            result = check_domain_availability("available-example.com")
+            result = check_domain_availability("available-domain.com")
 
             # ASSERT: Should return True for available domain
             assert result is True
@@ -49,7 +49,7 @@ class TestWhoisClient:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "DomainInfo": {"domainAvailability": "UNAVAILABLE"}
+            "WhoisRecord": {"domainAvailability": "UNAVAILABLE"}
         }
 
         with patch("requests.get", return_value=mock_response):
@@ -67,7 +67,7 @@ class TestWhoisClient:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "DomainInfo": {"domainAvailability": "AVAILABLE"}
+            "WhoisRecord": {"domainAvailability": "AVAILABLE"}
         }
 
         with patch("requests.get", return_value=mock_response) as mock_get:
@@ -131,19 +131,21 @@ class TestWhoisClient:
             # ASSERT: Should return False on invalid response (conservative)
             assert result is False
 
-    def test_check_domain_availability_handles_missing_domain_info(self) -> None:
-        """Test handling of responses missing expected DomainInfo structure."""
-        # ARRANGE: Mock response without DomainInfo
+    def test_check_domain_availability_handles_missing_whois_data(self) -> None:
+        """Test handling of domains with MISSING_WHOIS_DATA (truly available)."""
+        # ARRANGE: Mock response for unregistered domain
         mock_response = Mock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {"ErrorMessage": "Domain format invalid"}
+        mock_response.json.return_value = {
+            "WhoisRecord": {"dataError": "MISSING_WHOIS_DATA"}
+        }
 
         with patch("requests.get", return_value=mock_response):
-            # ACT: Check domain availability with missing DomainInfo
-            result = check_domain_availability("malformed-response-test.com")
+            # ACT: Check domain availability with MISSING_WHOIS_DATA
+            result = check_domain_availability("unregistered-domain.com")
 
-            # ASSERT: Should return False when DomainInfo missing (conservative)
-            assert result is False
+            # ASSERT: Should return True for MISSING_WHOIS_DATA (truly available)
+            assert result is True
 
     def test_check_domain_availability_uses_correct_api_endpoint(self) -> None:
         """Test that correct WhoisXML API endpoint is used."""
@@ -151,17 +153,17 @@ class TestWhoisClient:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "DomainInfo": {"domainAvailability": "AVAILABLE"}
+            "WhoisRecord": {"domainAvailability": "AVAILABLE"}
         }
 
         with patch("requests.get", return_value=mock_response) as mock_get:
             # ACT: Check domain availability
             check_domain_availability("endpoint-test.com")
 
-            # ASSERT: Should call correct WhoisXML API URL
+            # ASSERT: Should call correct WhoisXML Full WHOIS API URL
             mock_get.assert_called_once()
             call_url = mock_get.call_args[0][0]
-            assert "domain-availability.whoisxmlapi.com" in call_url
+            assert "whoisserver/WhoisService" in call_url
 
     def test_check_domain_availability_includes_domain_in_request(self) -> None:
         """Test that domain name is included in API request parameters."""
@@ -169,7 +171,7 @@ class TestWhoisClient:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "DomainInfo": {"domainAvailability": "AVAILABLE"}
+            "WhoisRecord": {"domainAvailability": "AVAILABLE"}
         }
 
         with patch("requests.get", return_value=mock_response) as mock_get:
@@ -188,7 +190,7 @@ class TestWhoisClient:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "DomainInfo": {"domainAvailability": "AVAILABLE"}
+            "WhoisRecord": {"domainAvailability": "AVAILABLE"}
         }
 
         with patch("requests.get", return_value=mock_response) as mock_get:
@@ -227,7 +229,7 @@ class TestWhoisClient:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "DomainInfo": {
+            "WhoisRecord": {
                 "domainAvailability": "AVAILABLE",
                 "status": ["pendingDelete"],
             }
@@ -248,7 +250,7 @@ class TestWhoisClient:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "DomainInfo": {
+            "WhoisRecord": {
                 "domainAvailability": "AVAILABLE",
                 "status": ["redemptionPeriod"],
             }
@@ -269,7 +271,7 @@ class TestWhoisClient:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "DomainInfo": {"domainAvailability": "AVAILABLE", "status": ["clientHold"]}
+            "WhoisRecord": {"domainAvailability": "AVAILABLE", "status": ["clientHold"]}
         }
 
         with patch("requests.get", return_value=mock_response):
@@ -287,7 +289,7 @@ class TestWhoisClient:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "DomainInfo": {"domainAvailability": "AVAILABLE", "status": ["serverHold"]}
+            "WhoisRecord": {"domainAvailability": "AVAILABLE", "status": ["serverHold"]}
         }
 
         with patch("requests.get", return_value=mock_response):
@@ -305,7 +307,10 @@ class TestWhoisClient:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "DomainInfo": {"domainAvailability": "AVAILABLE", "status": ["renewPeriod"]}
+            "WhoisRecord": {
+                "domainAvailability": "AVAILABLE",
+                "status": ["renewPeriod"],
+            }
         }
 
         with patch("requests.get", return_value=mock_response):
@@ -323,7 +328,7 @@ class TestWhoisClient:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "DomainInfo": {
+            "WhoisRecord": {
                 "domainAvailability": "AVAILABLE",
                 "status": ["transferPeriod"],
             }
@@ -344,7 +349,7 @@ class TestWhoisClient:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "DomainInfo": {
+            "WhoisRecord": {
                 "domainAvailability": "AVAILABLE",
                 "status": ["pendingDelete", "serverHold", "clientHold"],
             }
@@ -365,7 +370,7 @@ class TestWhoisClient:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "DomainInfo": {
+            "WhoisRecord": {
                 "domainAvailability": "AVAILABLE",
                 "status": ["ok", "inactive"],
             }
@@ -384,7 +389,7 @@ class TestWhoisClient:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "DomainInfo": {"domainAvailability": "AVAILABLE"}
+            "WhoisRecord": {"domainAvailability": "AVAILABLE"}
         }
 
         with patch("requests.get", return_value=mock_response):
@@ -400,7 +405,7 @@ class TestWhoisClient:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "DomainInfo": {
+            "WhoisRecord": {
                 "domainAvailability": "AVAILABLE",
                 "status": ["PendingDelete", "ServerHold"],
             }
@@ -425,7 +430,7 @@ class TestEnhancedDomainInfo:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "DomainInfo": {
+            "WhoisRecord": {
                 "domainAvailability": "AVAILABLE",
                 "domainName": "example.com",
                 "status": ["ok"],
@@ -469,7 +474,7 @@ class TestEnhancedDomainInfo:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "DomainInfo": {
+            "WhoisRecord": {
                 "domainAvailability": "UNAVAILABLE",
                 "domainName": "google.com",
                 "status": ["clientTransferProhibited", "serverDeleteProhibited"],
@@ -506,7 +511,7 @@ class TestEnhancedDomainInfo:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "DomainInfo": {
+            "WhoisRecord": {
                 "domainAvailability": "AVAILABLE",
                 "domainName": "pending-example.com",
                 "status": ["pendingDelete", "serverHold"],
@@ -538,7 +543,7 @@ class TestEnhancedDomainInfo:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "DomainInfo": {
+            "WhoisRecord": {
                 "domainAvailability": "AVAILABLE",
                 "domainName": "minimal-example.com",
                 "status": ["ok"],
@@ -586,7 +591,7 @@ class TestDomainStatusDetailed:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "DomainInfo": {"domainAvailability": "AVAILABLE", "status": ["ok"]}
+            "WhoisRecord": {"domainAvailability": "AVAILABLE", "status": ["ok"]}
         }
 
         with patch("requests.get", return_value=mock_response):
@@ -607,7 +612,7 @@ class TestDomainStatusDetailed:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "DomainInfo": {
+            "WhoisRecord": {
                 "domainAvailability": "AVAILABLE",
                 "status": ["pendingDelete", "ok"],
             }
@@ -631,7 +636,7 @@ class TestDomainStatusDetailed:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "DomainInfo": {
+            "WhoisRecord": {
                 "domainAvailability": "AVAILABLE",
                 "status": ["pendingDelete", "serverHold", "ok", "clientHold"],
             }
@@ -659,7 +664,7 @@ class TestDomainStatusDetailed:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "DomainInfo": {
+            "WhoisRecord": {
                 "domainAvailability": "AVAILABLE",
                 "status": ["PendingDelete", "ServerHold"],
             }
@@ -684,7 +689,7 @@ class TestDomainStatusDetailed:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "DomainInfo": {"domainAvailability": "UNAVAILABLE", "status": ["ok"]}
+            "WhoisRecord": {"domainAvailability": "UNAVAILABLE", "status": ["ok"]}
         }
 
         with patch("requests.get", return_value=mock_response):
@@ -705,7 +710,7 @@ class TestDomainStatusDetailed:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "DomainInfo": {"domainAvailability": "AVAILABLE"}
+            "WhoisRecord": {"domainAvailability": "AVAILABLE"}
         }
 
         with patch("requests.get", return_value=mock_response):

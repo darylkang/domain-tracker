@@ -19,8 +19,8 @@ from requests.exceptions import ConnectionError, RequestException, Timeout
 from domain_tracker.settings import Settings
 
 # API Configuration
-WHOISXML_API_URL = "https://domain-availability.whoisxmlapi.com/api/v1"
-REQUEST_TIMEOUT_SECONDS = 30
+WHOISXML_API_URL = "https://www.whoisxmlapi.com/whoisserver/WhoisService"
+REQUEST_TIMEOUT_SECONDS = 60  # Full WHOIS API recommended timeout
 MAX_DOMAIN_LENGTH = 253
 
 # Domain statuses that indicate a domain is not truly available
@@ -153,11 +153,12 @@ def check_domain_status_detailed(
             settings = Settings()  # type: ignore[call-arg]
         api_key = settings.whois_api_key
 
-        # Prepare API request parameters
+        # Prepare API request parameters for Full WHOIS API
         request_params = {
             "apiKey": api_key,
             "domainName": domain,
-            "format": "json",
+            "outputFormat": "JSON",  # Full WHOIS API parameter
+            "da": "2",  # Enable domain availability check (slower but more accurate)
         }
 
         # Make API request with timeout
@@ -177,30 +178,63 @@ def check_domain_status_detailed(
 
         # Debug output: Show raw API response
         if debug:
-            print(f"\n🔧 DEBUG: Raw API response for {domain}:")
+            print(f"\n🔧 DEBUG: Raw Full WHOIS API response for {domain}:")
             print(f"   URL: {response.url}")
             print(f"   Status Code: {response.status_code}")
             print(f"   Raw Response: {json.dumps(response_data, indent=2)}")
             print("-" * 60)
 
-        # Extract domain availability status
-        domain_info = response_data.get("DomainInfo", {})
-        availability_status = str(domain_info.get("domainAvailability", "")).upper()
+        # Extract WHOIS record from Full WHOIS API response
+        whois_record = response_data.get("WhoisRecord", {})
+
+        # Check for data errors first
+        data_error = whois_record.get("dataError")
+        if data_error == "MISSING_WHOIS_DATA":
+            # Domain not registered, truly available
+            if debug:
+                print(f"🔧 DEBUG: Domain {domain} not registered (MISSING_WHOIS_DATA)")
+            return True, []
+
+        # Extract domain availability status from Full WHOIS API
+        availability_status = str(whois_record.get("domainAvailability", "")).upper()
 
         # If not marked as available, return False immediately
-        if availability_status != "AVAILABLE":
+        if availability_status not in ["AVAILABLE", ""]:
             if debug:
                 print(
-                    f"🔧 DEBUG: Domain {domain} marked as {availability_status} by API"
+                    f"🔧 DEBUG: Domain {domain} marked as {availability_status} by Full WHOIS API"
                 )
             return False, []
 
-        # Check for problematic statuses
-        domain_statuses = domain_info.get("status", [])
-        if debug:
-            print(f"🔧 DEBUG: Domain {domain} statuses from API: {domain_statuses}")
+        # Extract detailed status information from Full WHOIS API
+        # Check both main record and registry data for comprehensive status info
+        all_statuses = []
 
-        problematic_statuses = _extract_problematic_statuses(domain_statuses)
+        # Get status from main record (can be string or list)
+        main_status = whois_record.get("status", "")
+        if main_status:
+            if debug:
+                print(f"🔧 DEBUG: Main status for {domain}: {main_status}")
+            if isinstance(main_status, list):
+                all_statuses.extend(main_status)
+            else:
+                all_statuses.extend(_parse_status_string(main_status))
+
+        # Get status from registry data (can be string or list)
+        registry_data = whois_record.get("registryData", {})
+        registry_status = registry_data.get("status", "")
+        if registry_status:
+            if debug:
+                print(f"🔧 DEBUG: Registry status for {domain}: {registry_status}")
+            if isinstance(registry_status, list):
+                all_statuses.extend(registry_status)
+            else:
+                all_statuses.extend(_parse_status_string(registry_status))
+
+        if debug:
+            print(f"🔧 DEBUG: All extracted statuses for {domain}: {all_statuses}")
+
+        problematic_statuses = _extract_problematic_statuses(all_statuses)
 
         if debug and problematic_statuses:
             print(
@@ -314,6 +348,38 @@ def _extract_problematic_statuses(domain_statuses: list[str] | None) -> list[str
     return unique_problematic
 
 
+def _parse_status_string(status_string: str) -> list[str]:
+    """
+    Parse a status string from Full WHOIS API into individual status codes.
+
+    The Full WHOIS API returns status as a string like:
+    "clientUpdateProhibited https://... clientTransferProhibited https://..."
+
+    Args:
+        status_string: Raw status string from Full WHOIS API
+
+    Returns:
+        List of individual status codes
+    """
+    if not status_string:
+        return []
+
+    # Split on whitespace and filter out URLs
+    parts = status_string.split()
+    statuses = []
+
+    for part in parts:
+        # Skip URLs and empty strings
+        if part.startswith("http") or not part.strip():
+            continue
+        # Remove parentheses and other punctuation
+        clean_part = part.strip("()")
+        if clean_part:
+            statuses.append(clean_part)
+
+    return statuses
+
+
 def _normalize_status_name(status: str) -> str:
     """
     Normalize status name to consistent camelCase format.
@@ -399,14 +465,16 @@ def get_enhanced_domain_info(
     logging.debug(f"Getting enhanced domain info for: {domain}")
 
     try:
-        # Make API request to WhoisXML
+        # Make API request to Full WHOIS API
         response = requests.get(
-            "https://domain-availability.whoisxmlapi.com/api/v1",
+            WHOISXML_API_URL,
             params={
                 "apiKey": settings.whois_api_key,
                 "domainName": domain,
+                "outputFormat": "JSON",
+                "da": "2",  # Enable domain availability check
             },
-            timeout=10,
+            timeout=REQUEST_TIMEOUT_SECONDS,
         )
         response.raise_for_status()
 
@@ -414,26 +482,58 @@ def get_enhanced_domain_info(
 
         # Debug output: Show raw API response
         if debug:
-            print(f"\n🔧 DEBUG: Enhanced API response for {domain}:")
+            print(f"\n🔧 DEBUG: Enhanced Full WHOIS API response for {domain}:")
             print(f"   URL: {response.url}")
             print(f"   Status Code: {response.status_code}")
             print(f"   Raw Response: {json.dumps(data, indent=2)}")
             print("-" * 60)
 
-        domain_data = data.get("DomainInfo", {})
+        whois_record = data.get("WhoisRecord", {})
 
-        # Extract basic availability and status
-        availability = domain_data.get("domainAvailability", "UNAVAILABLE")
-        statuses = domain_data.get("status", [])
+        # Check for data errors first
+        data_error = whois_record.get("dataError")
+        if data_error == "MISSING_WHOIS_DATA":
+            # Domain not registered, truly available
+            if debug:
+                print(
+                    f"🔧 DEBUG: Enhanced check - Domain {domain} not registered (MISSING_WHOIS_DATA)"
+                )
+            return DomainInfo(
+                domain_name=domain,
+                is_available=True,
+                problematic_statuses=[],
+            )
+
+        # Extract basic availability and status from Full WHOIS API
+        availability = whois_record.get("domainAvailability", "UNAVAILABLE")
+
+        # Extract comprehensive status information (can be string or list)
+        all_statuses = []
+        main_status = whois_record.get("status", "")
+        if main_status:
+            if isinstance(main_status, list):
+                all_statuses.extend(main_status)
+            else:
+                all_statuses.extend(_parse_status_string(main_status))
+
+        registry_data = whois_record.get("registryData", {})
+        registry_status = registry_data.get("status", "")
+        if registry_status:
+            if isinstance(registry_status, list):
+                all_statuses.extend(registry_status)
+            else:
+                all_statuses.extend(_parse_status_string(registry_status))
 
         if debug:
             print(
                 f"🔧 DEBUG: Enhanced check - Domain {domain} availability: {availability}"
             )
-            print(f"🔧 DEBUG: Enhanced check - Domain {domain} statuses: {statuses}")
+            print(
+                f"🔧 DEBUG: Enhanced check - All domain {domain} statuses: {all_statuses}"
+            )
 
         # Check for problematic statuses
-        problematic_statuses = _get_problematic_statuses(statuses)
+        problematic_statuses = _extract_problematic_statuses(all_statuses)
 
         if debug and problematic_statuses:
             print(
@@ -441,20 +541,44 @@ def get_enhanced_domain_info(
             )
 
         # Determine final availability (considering problematic statuses)
-        is_available = availability == "AVAILABLE" and len(problematic_statuses) == 0
+        is_available = (availability == "AVAILABLE" or availability == "") and len(
+            problematic_statuses
+        ) == 0
 
-        # Parse dates
-        expiration_date = _parse_api_date(domain_data.get("expiresDate"))
-        creation_date = _parse_api_date(domain_data.get("createdDate"))
+        # Parse dates from Full WHOIS API (try both main record and registry data)
+        expiration_date = (
+            _parse_api_date(whois_record.get("expiresDate"))
+            or _parse_api_date(whois_record.get("expiresDateNormalized"))
+            or _parse_api_date(registry_data.get("expiresDate"))
+            or _parse_api_date(registry_data.get("expiresDateNormalized"))
+        )
 
-        # Extract registrant information
-        registrant = domain_data.get("registrant", {})
+        creation_date = (
+            _parse_api_date(whois_record.get("createdDate"))
+            or _parse_api_date(whois_record.get("createdDateNormalized"))
+            or _parse_api_date(registry_data.get("createdDate"))
+            or _parse_api_date(registry_data.get("createdDateNormalized"))
+        )
+
+        # Extract registrant information from Full WHOIS API
+        registrant = whois_record.get("registrant", {}) or registry_data.get(
+            "registrant", {}
+        )
         registrant_name = registrant.get("name")
         registrant_organization = registrant.get("organization")
 
-        # Extract other details
-        registrar_name = domain_data.get("registrarName")
-        name_servers = domain_data.get("nameServers", [])
+        # Extract other details from Full WHOIS API
+        registrar_name = whois_record.get("registrarName") or registry_data.get(
+            "registrarName"
+        )
+
+        # Extract name servers
+        name_servers = []
+        ns_data = whois_record.get("nameServers") or registry_data.get("nameServers")
+        if ns_data and isinstance(ns_data, dict):
+            name_servers = ns_data.get("hostNames", [])
+        elif isinstance(ns_data, list):
+            name_servers = ns_data
 
         return DomainInfo(
             domain_name=domain,
@@ -518,91 +642,4 @@ def _parse_api_date(date_string: str | None) -> datetime | None:
         return None
 
 
-def _get_problematic_statuses(statuses: list[str] | None) -> list[str]:
-    """
-    Check for problematic domain statuses that indicate the domain may not be truly available.
-
-    This function now performs comprehensive checking including:
-    - Exact matches for known problematic statuses
-    - Partial string matching for status keywords
-    - Better normalization and parsing of complex status strings
-
-    Args:
-        statuses: List of domain statuses from API response
-
-    Returns:
-        List of found problematic statuses
-    """
-    if not statuses:
-        return []
-
-    problematic_found = []
-
-    for status in statuses:
-        if not status:
-            continue
-
-        # Convert to string and normalize for comparison
-        status_str = str(status).strip()
-
-        # Skip empty statuses
-        if not status_str:
-            continue
-
-        # Normalize status: lowercase, remove spaces, parentheses, and URLs
-        # Many statuses come in format like "clientDeleteProhibited (https://www.icann.org/epp#clientDeleteProhibited)"
-        normalized_status = status_str.lower()
-
-        # Extract the actual status code from complex format
-        if "(" in normalized_status:
-            normalized_status = normalized_status.split("(")[0].strip()
-
-        # Remove common separators and extra whitespace
-        normalized_status = (
-            normalized_status.replace(" ", "").replace("-", "").replace("_", "")
-        )
-
-        # Check for exact matches first
-        if normalized_status in PROBLEMATIC_DOMAIN_STATUSES:
-            problematic_found.append(_normalize_status_name(normalized_status))
-            continue
-
-        # Check for partial matches using keywords
-        status_lower = status_str.lower()
-        for keyword in PROBLEMATIC_KEYWORDS:
-            if keyword in status_lower:
-                # Found a problematic keyword, extract a meaningful status name
-                if keyword == "pending" and "delete" in status_lower:
-                    problematic_found.append("pendingDelete")
-                elif keyword == "hold":
-                    if "client" in status_lower:
-                        problematic_found.append("clientHold")
-                    elif "server" in status_lower:
-                        problematic_found.append("serverHold")
-                    else:
-                        problematic_found.append("hold")
-                elif keyword == "redemption":
-                    problematic_found.append("redemptionPeriod")
-                elif keyword == "prohibited":
-                    if "transfer" in status_lower:
-                        problematic_found.append("transferProhibited")
-                    elif "delete" in status_lower:
-                        problematic_found.append("deleteProhibited")
-                    elif "update" in status_lower:
-                        problematic_found.append("updateProhibited")
-                    else:
-                        problematic_found.append("prohibited")
-                else:
-                    # Use the keyword as the problematic status
-                    problematic_found.append(keyword.title())
-                break
-
-    # Remove duplicates while preserving order
-    seen = set()
-    unique_problematic = []
-    for status in problematic_found:
-        if status not in seen:
-            seen.add(status)
-            unique_problematic.append(status)
-
-    return unique_problematic
+# Note: _get_problematic_statuses function removed - now using _extract_problematic_statuses consistently
