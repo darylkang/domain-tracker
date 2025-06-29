@@ -1,22 +1,27 @@
 """
-CLI interface for Domain Drop Tracker.
+Command-line interface for the Domain Drop Tracker.
 
-This module provides the main command-line interface for checking domain
-availability and sending Slack notifications.
+This module provides the main CLI entry point for checking domain availability
+and sending Slack notifications when domains become available.
 """
 
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from typing import Annotated
 
 import typer
 
 from domain_tracker.domain_management import load_domains
 from domain_tracker.settings import Settings
-from domain_tracker.slack_notifier import send_slack_alert
+from domain_tracker.slack_notifier import (
+    format_enhanced_slack_message,
+    send_slack_alert,
+)
 from domain_tracker.whois_client import (
     check_domain_status_detailed,
+    get_enhanced_domain_info,
 )
 
 # Message templates
@@ -103,22 +108,55 @@ def main(
 @app.command("check")
 def check_single_domain_command(
     domain: Annotated[str, typer.Argument(help="Domain to check (e.g., example.com)")],
+    enhanced_slack: Annotated[
+        bool,
+        typer.Option(
+            "--enhanced-slack",
+            help="Use enhanced Slack message format with detailed domain information",
+        ),
+    ] = False,
 ) -> None:
     """Check availability of a single domain and send Slack alert."""
     try:
         settings = _load_settings()
 
         print(f"🔍 Checking {domain}...")
-        is_available, problematic_statuses = check_domain_status_detailed(
-            domain, settings
-        )
 
-        # Create enhanced message based on detailed status
-        message = _get_enhanced_domain_message(
-            domain, is_available, problematic_statuses
-        )
-        print(message)
-        _send_slack_alert_safely(message, settings)
+        if enhanced_slack:
+            # Use enhanced domain info for rich Slack messages
+            domain_info = get_enhanced_domain_info(domain, settings)
+
+            # Keep CLI output lightweight
+            if domain_info.has_error:
+                print(f"❌ Error checking {domain}: {domain_info.error_message}")
+            elif domain_info.is_available:
+                print("✅ Available")
+            elif domain_info.problematic_statuses:
+                print(f"⚠️ Problematic status: {', '.join(domain_info.problematic_statuses)}")
+            else:
+                print("❌ Unavailable")
+
+            # Send enhanced Slack message
+            if not domain_info.has_error:
+                check_time = datetime.utcnow()
+                enhanced_message = format_enhanced_slack_message([domain_info], check_time)
+                _send_slack_alert_safely(enhanced_message, settings)
+            else:
+                # Send simple error message for API errors
+                error_message = f"🚨 Error checking {domain}: {domain_info.error_message}"
+                _send_slack_alert_safely(error_message, settings)
+        else:
+            # Use legacy simple format
+            is_available, problematic_statuses = check_domain_status_detailed(
+                domain, settings
+            )
+
+            # Create enhanced message based on detailed status
+            message = _get_enhanced_domain_message(
+                domain, is_available, problematic_statuses
+            )
+            print(message)
+            _send_slack_alert_safely(message, settings)
 
     except Exception as e:
         print(f"❌ Error checking domain {domain}: {e}")
@@ -132,6 +170,13 @@ def check_domains(
         typer.Option(
             "--notify-all",
             help="Send Slack alerts for all domains, regardless of availability",
+        ),
+    ] = False,
+    enhanced_slack: Annotated[
+        bool,
+        typer.Option(
+            "--enhanced-slack",
+            help="Use enhanced Slack message format with detailed domain information",
         ),
     ] = False,
     debug: Annotated[
@@ -156,37 +201,70 @@ def check_domains(
             return
 
         available_domains = []
+        domain_infos = []
 
         # Check each domain
         for domain in domains:
             try:
                 print(f"  Checking {domain}...", end=" ")
-                is_available, problematic_statuses = check_domain_status_detailed(
-                    domain, settings
-                )
 
-                # Create enhanced message for this domain
-                message = _get_enhanced_domain_message(
-                    domain, is_available, problematic_statuses
-                )
+                if enhanced_slack:
+                    # Use enhanced domain info for rich Slack messages
+                    domain_info = get_enhanced_domain_info(domain, settings)
+                    domain_infos.append(domain_info)
 
-                if is_available:
-                    print("✅ Available")
-                    available_domains.append(domain)
-                    _send_slack_alert_safely(message, settings)
-                else:
-                    if problematic_statuses:
-                        print(
-                            f"⚠️ Problematic status: {', '.join(problematic_statuses)}"
-                        )
+                    # Keep CLI output lightweight
+                    if domain_info.has_error:
+                        print(f"❌ Error: {domain_info.error_message}")
+                    elif domain_info.is_available:
+                        print("✅ Available")
+                        available_domains.append(domain)
+                    elif domain_info.problematic_statuses:
+                        print(f"⚠️ Problematic status: {', '.join(domain_info.problematic_statuses)}")
                     else:
                         print("❌ Unavailable")
+                else:
+                    # Use legacy simple format
+                    is_available, problematic_statuses = check_domain_status_detailed(
+                        domain, settings
+                    )
 
-                    if notify_all:
+                    # Create enhanced message for this domain
+                    message = _get_enhanced_domain_message(
+                        domain, is_available, problematic_statuses
+                    )
+
+                    if is_available:
+                        print("✅ Available")
+                        available_domains.append(domain)
                         _send_slack_alert_safely(message, settings)
+                    else:
+                        if problematic_statuses:
+                            print(
+                                f"⚠️ Problematic status: {', '.join(problematic_statuses)}"
+                            )
+                        else:
+                            print("❌ Unavailable")
+
+                        if notify_all:
+                            _send_slack_alert_safely(message, settings)
 
             except Exception as e:
                 print(f"❌ Error checking {domain}: {e}")
+
+        # Send enhanced Slack message summary if using enhanced mode
+        if enhanced_slack and domain_infos:
+            # Only send if there are available domains, errors, or notify_all is enabled
+            should_notify = (
+                any(info.is_available for info in domain_infos) or
+                any(info.has_error for info in domain_infos) or
+                notify_all
+            )
+
+            if should_notify:
+                check_time = datetime.utcnow()
+                enhanced_message = format_enhanced_slack_message(domain_infos, check_time)
+                _send_slack_alert_safely(enhanced_message, settings)
 
         # Print summary
         _print_domain_summary(len(domains), available_domains)

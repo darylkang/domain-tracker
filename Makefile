@@ -1,13 +1,10 @@
 .PHONY: help install test test-watch test-cov test-file lint format type-check clean dev-setup tdd-demo
 
 help: ## Show available commands
-	@echo "🚀 Domain Tracker - Available Commands:"
+	@echo "🔍 Domain Tracker - Available Commands:"
 	@echo ""
 	@echo "📦 Setup & Installation:"
 	@awk 'BEGIN {FS = ":.*?## "} /^install.*:.*?## / {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
-	@echo ""
-	@echo "🔍 Domain Commands:"
-	@awk 'BEGIN {FS = ":.*?## "} /^(run|check-single|setup-env|validate-config).*:.*?## / {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 	@echo ""
 	@echo "🧪 TDD & Testing:"
 	@awk 'BEGIN {FS = ":.*?## "} /^test.*:.*?## / {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -18,8 +15,12 @@ help: ## Show available commands
 	@echo "🧹 Maintenance:"
 	@awk 'BEGIN {FS = ":.*?## "} /^(clean|dev-setup).*:.*?## / {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 	@echo ""
+	@echo "🔍 Domain Commands:"
+	@awk 'BEGIN {FS = ":.*?## "} /^(run|check-single|validate-config|setup-env).*:.*?## / {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@echo ""
 	@echo "🎓 Learning:"
 	@awk 'BEGIN {FS = ":.*?## "} /^tdd-demo.*:.*?## / {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@echo ""
 
 install: ## Install package in development mode
 	@echo "🔧 Installing package..."
@@ -99,25 +100,41 @@ clean: ## Clean build artifacts and caches
 	@echo "✅ Cleanup complete!"
 
 # Domain Tracker Commands
-run: ## Run domain checking for all domains in domains.txt
+run: ## Run domain checking with basic Slack messages
 	@echo "🔍 Running domain availability check..."
-	vibe check-domains
+	@vibe check-domains
 
-run-debug: ## Run domain checking with debug logging
-	@echo "🔍 Running domain availability check (debug mode)..."
-	vibe check-domains --debug
+run-debug: ## Run with debug logging enabled
+	@echo "🔍 Running domain check with debug logging..."
+	@vibe check-domains --debug
 
-run-all: ## Run domain checking with notifications for all domains
-	@echo "🔍 Running domain availability check (notify all)..."
-	vibe check-domains --notify-all
+run-all: ## Run with notifications for all domains
+	@echo "🔍 Running domain check with all notifications..."
+	@vibe check-domains --notify-all
 
-check-single: ## Check a single domain (usage: make check-single DOMAIN=example.com)
-	@echo "🔍 Checking single domain: $(DOMAIN)"
+run-enhanced: ## Run with enhanced Slack messages (rich format)
+	@echo "🔍 Running domain check with enhanced Slack messages..."
+	@vibe check-domains --enhanced-slack
+
+run-enhanced-all: ## Run with enhanced Slack messages for all domains
+	@echo "🔍 Running domain check with enhanced Slack messages for all domains..."
+	@vibe check-domains --enhanced-slack --notify-all
+
+check-single: ## Check single domain (usage: make check-single DOMAIN=example.com)
 	@if [ -z "$(DOMAIN)" ]; then \
-		echo "❌ Please specify DOMAIN=example.com"; \
-		exit 1; \
+		echo "❌ Please specify a domain: make check-single DOMAIN=example.com"; \
+	else \
+		echo "🔍 Checking $(DOMAIN)..."; \
+		vibe check $(DOMAIN); \
 	fi
-	vibe check $(DOMAIN)
+
+check-single-enhanced: ## Check single domain with enhanced Slack messages (usage: make check-single-enhanced DOMAIN=example.com)
+	@if [ -z "$(DOMAIN)" ]; then \
+		echo "❌ Please specify a domain: make check-single-enhanced DOMAIN=example.com"; \
+	else \
+		echo "🔍 Checking $(DOMAIN) with enhanced messages..."; \
+		vibe check $(DOMAIN) --enhanced-slack; \
+	fi
 
 setup-env: ## Create .env file from template
 	@echo "🔧 Setting up environment configuration..."

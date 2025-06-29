@@ -8,7 +8,10 @@ WhoisXML API service with robust error handling and validation.
 from __future__ import annotations
 
 import json
+import logging
 import re
+from dataclasses import dataclass
+from datetime import datetime
 
 import requests
 from requests.exceptions import ConnectionError, RequestException, Timeout
@@ -29,6 +32,28 @@ PROBLEMATIC_DOMAIN_STATUSES = {
     "renewperiod",
     "transferperiod",
 }
+
+
+@dataclass
+class DomainInfo:
+    """Enhanced domain information from WhoisXML API."""
+
+    domain_name: str
+    is_available: bool
+    problematic_statuses: list[str]
+    expiration_date: datetime | None = None
+    creation_date: datetime | None = None
+    registrant_name: str | None = None
+    registrant_organization: str | None = None
+    registrar_name: str | None = None
+    name_servers: list[str] | None = None
+    has_error: bool = False
+    error_message: str = ""
+
+    def __post_init__(self) -> None:
+        """Initialize name_servers as empty list if None."""
+        if self.name_servers is None:
+            self.name_servers = []
 
 
 def check_domain_availability(domain: str, settings: Settings | None = None) -> bool:
@@ -218,3 +243,158 @@ def _is_valid_domain_format(domain: str) -> bool:
     )
 
     return bool(domain_format_pattern.match(domain))
+
+
+def get_enhanced_domain_info(
+    domain: str, settings: Settings | None = None
+) -> DomainInfo:
+    """
+    Get enhanced domain information from WhoisXML API.
+
+    This function extracts detailed information including availability,
+    expiration dates, registrant information, and domain statuses for
+    rich Slack message formatting.
+
+    Args:
+        domain: Domain name to check (e.g., 'example.com')
+        settings: Optional settings instance for API configuration
+
+    Returns:
+        DomainInfo: Enhanced domain information object
+    """
+    if settings is None:
+        settings = Settings()  # type: ignore[call-arg]
+
+    logging.debug(f"Getting enhanced domain info for: {domain}")
+
+    try:
+        # Make API request to WhoisXML
+        response = requests.get(
+            "https://domain-availability.whoisxmlapi.com/api/v1",
+            params={
+                "apiKey": settings.whois_api_key,
+                "domainName": domain,
+            },
+            timeout=10,
+        )
+        response.raise_for_status()
+
+        data = response.json()
+        domain_data = data.get("DomainInfo", {})
+
+        # Extract basic availability and status
+        availability = domain_data.get("domainAvailability", "UNAVAILABLE")
+        statuses = domain_data.get("status", [])
+
+        # Check for problematic statuses
+        problematic_statuses = _get_problematic_statuses(statuses)
+
+        # Determine final availability (considering problematic statuses)
+        is_available = (
+            availability == "AVAILABLE"
+            and len(problematic_statuses) == 0
+        )
+
+        # Parse dates
+        expiration_date = _parse_api_date(domain_data.get("expiresDate"))
+        creation_date = _parse_api_date(domain_data.get("createdDate"))
+
+        # Extract registrant information
+        registrant = domain_data.get("registrant", {})
+        registrant_name = registrant.get("name")
+        registrant_organization = registrant.get("organization")
+
+        # Extract other details
+        registrar_name = domain_data.get("registrarName")
+        name_servers = domain_data.get("nameServers", [])
+
+        return DomainInfo(
+            domain_name=domain,
+            is_available=is_available,
+            problematic_statuses=problematic_statuses,
+            expiration_date=expiration_date,
+            creation_date=creation_date,
+            registrant_name=registrant_name,
+            registrant_organization=registrant_organization,
+            registrar_name=registrar_name,
+            name_servers=name_servers,
+        )
+
+    except (RequestException, Timeout, ConnectionError) as e:
+        logging.error(f"Failed to get enhanced domain info for {domain}: {e}")
+        return DomainInfo(
+            domain_name=domain,
+            is_available=False,
+            problematic_statuses=[],
+            has_error=True,
+            error_message=str(e),
+        )
+    except Exception as e:
+        logging.error(f"Unexpected error getting domain info for {domain}: {e}")
+        return DomainInfo(
+            domain_name=domain,
+            is_available=False,
+            problematic_statuses=[],
+            has_error=True,
+            error_message=f"Unexpected error: {e}",
+        )
+
+
+def _parse_api_date(date_string: str | None) -> datetime | None:
+    """
+    Parse date string from API response.
+
+    Args:
+        date_string: ISO format date string from API
+
+    Returns:
+        datetime object or None if parsing fails
+    """
+    if not date_string:
+        return None
+
+    try:
+        # Handle ISO format dates (with or without timezone)
+        if date_string.endswith('Z'):
+            date_string = date_string[:-1] + '+00:00'
+        elif '+' not in date_string and date_string.count(':') == 2:
+            date_string += '+00:00'
+
+        return datetime.fromisoformat(date_string.replace('Z', '+00:00'))
+    except (ValueError, AttributeError):
+        logging.warning(f"Failed to parse date: {date_string}")
+        return None
+
+
+def _get_problematic_statuses(statuses: list[str]) -> list[str]:
+    """
+    Extract problematic domain statuses.
+
+    Args:
+        statuses: List of domain status strings from API
+
+    Returns:
+        List of problematic status strings
+    """
+    if not statuses:
+        return []
+
+    problematic = [
+        "pendingDelete",
+        "pendingRestore",
+        "redemptionPeriod",
+        "serverHold",
+        "clientHold",
+        "renewPeriod",
+        "transferPeriod",
+    ]
+
+    # Check each status (case insensitive)
+    found_problematic = []
+    for status in statuses:
+        for prob_status in problematic:
+            if status.lower() == prob_status.lower():
+                found_problematic.append(status)
+                break
+
+    return found_problematic

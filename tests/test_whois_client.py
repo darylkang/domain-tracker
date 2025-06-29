@@ -8,6 +8,7 @@ domain availability checking via WhoisXML API.
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 from unittest.mock import Mock, patch
 
 import requests
@@ -17,6 +18,7 @@ from domain_tracker.settings import Settings
 from domain_tracker.whois_client import (
     check_domain_availability,
     check_domain_status_detailed,
+    get_enhanced_domain_info,
 )
 
 
@@ -410,6 +412,161 @@ class TestWhoisClient:
 
             # ASSERT: Should return False for mixed case problematic statuses
             assert result is False
+
+
+class TestEnhancedDomainInfo:
+    """Test enhanced domain information extraction for rich Slack messages."""
+
+    def test_get_enhanced_domain_info_returns_complete_data_for_available_domain(
+        self,
+    ) -> None:
+        """Test that enhanced domain info returns complete data for available domain."""
+        # ARRANGE: Mock API response with full domain data
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "DomainInfo": {
+                "domainAvailability": "AVAILABLE",
+                "domainName": "example.com",
+                "status": ["ok"],
+                "expiresDate": "2024-12-31T23:59:59Z",
+                "createdDate": "2020-01-01T00:00:00Z",
+                "updatedDate": "2023-01-01T00:00:00Z",
+                "registrant": {
+                    "name": "John Doe",
+                    "organization": "Example Corp",
+                    "country": "US"
+                },
+                "nameServers": ["ns1.example.com", "ns2.example.com"],
+                "registrarName": "Example Registrar Inc."
+            }
+        }
+
+        with patch("requests.get", return_value=mock_response):
+            # ACT: Get enhanced domain info
+            domain_info = get_enhanced_domain_info("example.com")
+
+            # ASSERT: Should return complete domain information
+            assert domain_info.domain_name == "example.com"
+            assert domain_info.is_available is True
+            assert domain_info.problematic_statuses == []
+            assert domain_info.expiration_date == datetime(2024, 12, 31, 23, 59, 59, tzinfo=UTC)
+            assert domain_info.creation_date == datetime(2020, 1, 1, 0, 0, 0, tzinfo=UTC)
+            assert domain_info.registrant_name == "John Doe"
+            assert domain_info.registrant_organization == "Example Corp"
+            assert domain_info.registrar_name == "Example Registrar Inc."
+            assert domain_info.name_servers == ["ns1.example.com", "ns2.example.com"]
+
+    def test_get_enhanced_domain_info_handles_unavailable_domain_with_registrant(
+        self,
+    ) -> None:
+        """Test enhanced domain info for unavailable domain with registrant details."""
+        # ARRANGE: Mock API response for unavailable domain
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "DomainInfo": {
+                "domainAvailability": "UNAVAILABLE",
+                "domainName": "google.com",
+                "status": ["clientTransferProhibited", "serverDeleteProhibited"],
+                "expiresDate": "2025-09-14T04:00:00Z",
+                "createdDate": "1997-09-15T04:00:00Z",
+                "registrant": {
+                    "name": "Domain Administrator",
+                    "organization": "Google LLC",
+                    "country": "US"
+                },
+                "registrarName": "MarkMonitor Inc."
+            }
+        }
+
+        with patch("requests.get", return_value=mock_response):
+            # ACT: Get enhanced domain info
+            domain_info = get_enhanced_domain_info("google.com")
+
+            # ASSERT: Should return unavailable domain with registrant info
+            assert domain_info.domain_name == "google.com"
+            assert domain_info.is_available is False
+            assert domain_info.expiration_date == datetime(2025, 9, 14, 4, 0, 0, tzinfo=UTC)
+            assert domain_info.registrant_name == "Domain Administrator"
+            assert domain_info.registrant_organization == "Google LLC"
+            assert domain_info.registrar_name == "MarkMonitor Inc."
+
+    def test_get_enhanced_domain_info_handles_problematic_status_domain(
+        self,
+    ) -> None:
+        """Test enhanced domain info for domain with problematic status."""
+        # ARRANGE: Mock API response for domain with problematic status
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "DomainInfo": {
+                "domainAvailability": "AVAILABLE",
+                "domainName": "pending-example.com",
+                "status": ["pendingDelete", "serverHold"],
+                "expiresDate": "2024-01-15T12:00:00Z",
+                "createdDate": "2020-05-01T10:30:00Z",
+                "registrant": {
+                    "name": "Previous Owner",
+                    "organization": "Old Company Inc."
+                }
+            }
+        }
+
+        with patch("requests.get", return_value=mock_response):
+            # ACT: Get enhanced domain info
+            domain_info = get_enhanced_domain_info("pending-example.com")
+
+            # ASSERT: Should show as unavailable with problematic statuses listed
+            assert domain_info.domain_name == "pending-example.com"
+            assert domain_info.is_available is False
+            assert "pendingDelete" in domain_info.problematic_statuses
+            assert "serverHold" in domain_info.problematic_statuses
+            assert domain_info.registrant_name == "Previous Owner"
+
+    def test_get_enhanced_domain_info_handles_missing_optional_fields(
+        self,
+    ) -> None:
+        """Test enhanced domain info gracefully handles missing optional fields."""
+        # ARRANGE: Mock API response with minimal data
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "DomainInfo": {
+                "domainAvailability": "AVAILABLE",
+                "domainName": "minimal-example.com",
+                "status": ["ok"]
+            }
+        }
+
+        with patch("requests.get", return_value=mock_response):
+            # ACT: Get enhanced domain info
+            domain_info = get_enhanced_domain_info("minimal-example.com")
+
+            # ASSERT: Should handle missing fields gracefully
+            assert domain_info.domain_name == "minimal-example.com"
+            assert domain_info.is_available is True
+            assert domain_info.expiration_date is None
+            assert domain_info.creation_date is None
+            assert domain_info.registrant_name is None
+            assert domain_info.registrant_organization is None
+            assert domain_info.registrar_name is None
+            assert domain_info.name_servers == []
+
+    def test_get_enhanced_domain_info_handles_api_errors(
+        self,
+    ) -> None:
+        """Test enhanced domain info handles API errors gracefully."""
+        # ARRANGE: Mock API timeout
+        with patch("requests.get", side_effect=Timeout("Request timed out")):
+            # ACT: Get enhanced domain info with error
+            domain_info = get_enhanced_domain_info("error-domain.com")
+
+            # ASSERT: Should return error state
+            assert domain_info.domain_name == "error-domain.com"
+            assert domain_info.is_available is False
+            assert domain_info.has_error is True
+            assert "Request timed out" in domain_info.error_message
 
 
 class TestDomainStatusDetailed:
