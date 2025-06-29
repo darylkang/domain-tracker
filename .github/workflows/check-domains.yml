@@ -92,19 +92,6 @@ jobs:
           fi
           echo "Manual domain check completed successfully"
 
-      - name: Send completion notification (Scheduled only)
-        if: github.event_name == 'schedule' && success()
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        run: |
-          # Send a simple confirmation that the workflow ran successfully
-          # This helps verify the schedule is working even if the main command doesn't send notifications
-          curl -X POST -H 'Content-type: application/json' \
-            --data "{
-              \"text\": \"✅ GitHub Actions: Scheduled domain check completed\\n\\n🕐 Workflow executed at: $(date -u +'%Y-%m-%d %H:%M:%S UTC')\\n📊 This message confirms the scheduled job is running correctly.\\n\\n_This is a fallback notification to verify automation health._\"
-            }" \
-            $SLACK_WEBHOOK_URL || echo "Failed to send completion notification"
-
       - name: Notify on failure
         if: failure()
         env:
