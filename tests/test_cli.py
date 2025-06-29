@@ -452,15 +452,11 @@ class TestCLISingleDomainCheck:
 
     @patch("domain_tracker.cli._load_settings")
     @patch("domain_tracker.cli.DomainCheckService")
-    @patch("domain_tracker.cli._send_slack_alert_safely")
     def test_single_domain_check_handles_slack_errors_gracefully(
-        self,
-        mock_slack_safely: Mock,
-        mock_service_class: Mock,
-        mock_load_settings: Mock,
+        self, mock_service_class: Mock, mock_load_settings: Mock
     ) -> None:
         """Test that Slack errors during single domain check are handled gracefully."""
-        # ARRANGE: Mock service and error alert function
+        # ARRANGE: Mock service and domain info with error
         mock_settings = Mock()
         mock_load_settings.return_value = mock_settings
         mock_service = Mock()
@@ -471,17 +467,20 @@ class TestCLISingleDomainCheck:
             is_available=False,
             problematic_statuses=[],
             has_error=True,
-            error_message="Slack webhook error",
+            error_message="API request timeout",
         )
         mock_service.check_single_domain.return_value = domain_info
+        mock_service.send_slack_notification.return_value = True
 
         # ACT: Run CLI with check command
         result = self.runner.invoke(app, ["check", "test.com"])
 
-        # ASSERT: Should handle Slack error gracefully
+        # ASSERT: Should handle error gracefully and use enhanced notification
         assert result.exit_code == 0
-        # Should call error alert for API errors
-        mock_slack_safely.assert_called_once()
+        # Should send enhanced notification with error included
+        mock_service.send_slack_notification.assert_called_once_with(
+            [domain_info], trigger_type="manual", notify_all=True
+        )
 
     def test_no_domain_argument_falls_back_to_existing_behavior(self) -> None:
         """Test that missing domain argument shows error."""
@@ -490,9 +489,8 @@ class TestCLISingleDomainCheck:
 
         # ASSERT: Should show error for missing argument
         assert result.exit_code == 2  # Typer error code for missing argument
-        # Error message might be in stdout, stderr, or combined output
-        error_output = result.stdout + (result.stderr or "") + (result.output or "")
-        assert "Missing argument" in error_output or "Error" in error_output
+        # Check that error is in the output
+        assert "Missing argument" in result.output or "Error" in result.output
 
     def test_single_domain_check_validates_domain_format(self) -> None:
         """Test validation of domain format (basic behavior test)."""
@@ -564,6 +562,76 @@ class TestCLISingleDomainCheck:
         assert "Problematic status" in result.stdout
         assert "pendingDelete" in result.stdout
         assert "serverHold" in result.stdout
+
+    @patch("domain_tracker.cli._load_settings")
+    @patch("domain_tracker.cli.DomainCheckService")
+    def test_check_single_domain_command_sends_enhanced_slack_alert(
+        self, mock_service_class: Mock, mock_load_settings: Mock
+    ) -> None:
+        """Test that single domain check sends enhanced Slack alert."""
+        # ARRANGE: Mock service and domain info
+        mock_settings = Mock()
+        mock_load_settings.return_value = mock_settings
+        mock_service = Mock()
+        mock_service_class.return_value = mock_service
+
+        # Mock domain info
+        domain_info = DomainInfo(
+            domain_name="example.com", is_available=True, problematic_statuses=[]
+        )
+        mock_service.check_single_domain.return_value = domain_info
+        mock_service.send_slack_notification.return_value = True
+
+        # ACT: Run check command with single domain
+        result = self.runner.invoke(app, ["check", "example.com"])
+
+        # ASSERT: Should send notification through service with notify_all=True
+        assert result.exit_code == 0
+        mock_service.send_slack_notification.assert_called_once_with(
+            [domain_info], trigger_type="manual", notify_all=True
+        )
+
+    @patch("domain_tracker.cli._load_settings")
+    @patch("domain_tracker.cli.DomainCheckService")
+    def test_check_multiple_domains_command_sends_enhanced_slack_alert(
+        self, mock_service_class: Mock, mock_load_settings: Mock
+    ) -> None:
+        """Test that multiple domains check sends enhanced Slack alert."""
+        # ARRANGE: Mock service and settings
+        mock_settings = Mock()
+        mock_load_settings.return_value = mock_settings
+        mock_service = Mock()
+        mock_service_class.return_value = mock_service
+
+        # Mock service result for multiple domains
+        domain_infos = [
+            DomainInfo(
+                domain_name="example.com", is_available=True, problematic_statuses=[]
+            ),
+            DomainInfo(
+                domain_name="test.org", is_available=False, problematic_statuses=[]
+            ),
+        ]
+        check_result = DomainCheckResult(
+            total_domains=2,
+            available_domains=["example.com"],
+            domain_infos=domain_infos,
+            errors=[],
+        )
+        mock_service.check_multiple_domains.return_value = check_result
+        mock_service.send_slack_notification.return_value = True
+
+        # ACT: Run check command with multiple domains
+        result = self.runner.invoke(app, ["check", "example.com", "test.org"])
+
+        # ASSERT: Should use check_multiple_domains and send notification
+        assert result.exit_code == 0
+        mock_service.check_multiple_domains.assert_called_once_with(
+            domains=["example.com", "test.org"], use_enhanced_format=True, debug=False
+        )
+        mock_service.send_slack_notification.assert_called_once_with(
+            domain_infos, trigger_type="manual", notify_all=True
+        )
 
 
 class TestCLIBulkProblematicStatuses:

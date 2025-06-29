@@ -69,7 +69,7 @@ def main(
 
 @app.command("check")
 def check_single_domain_command(
-    domain: Annotated[str, typer.Argument(help="Domain to check (e.g., example.com)")],
+    domains: Annotated[list[str], typer.Argument(help="Domains to check (e.g., example.com anotherdomain.org)")],
     legacy_slack: Annotated[
         bool,
         typer.Option(
@@ -82,7 +82,7 @@ def check_single_domain_command(
         typer.Option("--debug", help="Enable debug output including raw API responses"),
     ] = False,
 ) -> None:
-    """Check availability of a single domain and send Slack alert."""
+    """Check availability of one or more domains and send Slack alert."""
     # Configure logging if debug mode is enabled
     if debug:
         logging.basicConfig(level=logging.DEBUG)
@@ -90,42 +90,85 @@ def check_single_domain_command(
     settings = _load_settings()
     service = DomainCheckService(settings)
 
-    print(f"🔍 Checking {domain}...")
+    # Handle single domain case for backwards compatibility
+    if len(domains) == 1:
+        domain = domains[0]
+        print(f"🔍 Checking {domain}...")
 
-    try:
-        if not legacy_slack:
-            # Use enhanced domain info for rich Slack messages
-            domain_info = service.check_single_domain(
-                domain, use_enhanced_format=True, debug=debug
-            )
-
-            # Display CLI-friendly status
-            status_display = get_domain_status_display(domain_info)
-            print(status_display)
-
-            # Send enhanced Slack notification
-            if not domain_info.has_error:
-                service.send_slack_notification([domain_info], trigger_type="manual")
-            else:
-                # Send simple error message for API errors
-                error_message = (
-                    f"🚨 Error checking {domain}: {domain_info.error_message}"
+        try:
+            if not legacy_slack:
+                # Use enhanced domain info for rich Slack messages
+                domain_info = service.check_single_domain(
+                    domain, use_enhanced_format=True, debug=debug
                 )
-                _send_slack_alert_safely(service, error_message)
-        else:
-            # Use legacy simple format
-            domain_info = service.check_single_domain(
-                domain, use_enhanced_format=False, debug=debug
-            )
-            message = get_legacy_domain_message(
-                domain, domain_info.is_available, domain_info.problematic_statuses
-            )
-            print(message)
-            _send_slack_alert_safely(service, message)
 
-    except Exception as e:
-        print(f"❌ Error checking domain {domain}: {e}")
-        raise typer.Exit(code=1) from e
+                # Display CLI-friendly status
+                status_display = get_domain_status_display(domain_info)
+                print(status_display)
+
+                # Always send enhanced Slack notification
+                service.send_slack_notification([domain_info], trigger_type="manual", notify_all=True)
+            else:
+                # Use legacy simple format
+                domain_info = service.check_single_domain(
+                    domain, use_enhanced_format=False, debug=debug
+                )
+                message = get_legacy_domain_message(
+                    domain, domain_info.is_available, domain_info.problematic_statuses
+                )
+                print(message)
+                _send_slack_alert_safely(service, message)
+
+        except Exception as e:
+            print(f"❌ Error checking domain {domain}: {e}")
+            raise typer.Exit(code=1) from e
+    
+    else:
+        # Handle multiple domains case
+        print(f"🔍 Checking {len(domains)} domains...")
+
+        try:
+            if not legacy_slack:
+                # Use enhanced format with multiple domains
+                result = service.check_multiple_domains(
+                    domains=domains, use_enhanced_format=True, debug=debug
+                )
+
+                if result.total_domains == 0:
+                    print("⚠️  No domains found to check.")
+                    return
+
+                # Display progress for each domain
+                for domain_info in result.domain_infos:
+                    status_display = get_domain_status_display(domain_info)
+                    print(f"  {domain_info.domain_name}... {status_display}")
+
+                # Always send enhanced Slack notification for batch check
+                service.send_slack_notification(
+                    result.domain_infos, trigger_type="manual", notify_all=True
+                )
+
+                # Print summary
+                print(
+                    f"\n{format_domain_summary(result.total_domains, result.available_domains)}"
+                )
+            else:
+                # Use legacy format for multiple domains
+                for domain in domains:
+                    domain_info = service.check_single_domain(
+                        domain, use_enhanced_format=False, debug=debug
+                    )
+                    message = get_legacy_domain_message(
+                        domain, domain_info.is_available, domain_info.problematic_statuses
+                    )
+                    status_display = get_domain_status_display(domain_info)
+                    print(f"  {domain}... {status_display}")
+                    # Send individual alerts for legacy mode
+                    _send_slack_alert_safely(service, message)
+
+        except Exception as e:
+            print(f"❌ Error checking domains: {e}")
+            raise typer.Exit(code=1) from e
 
 
 @app.command("check-domains")

@@ -135,10 +135,13 @@ class DomainCheckService:
         """
         try:
             # Determine if we should send notification
+            has_available = any(info.is_available for info in domain_infos)
+            has_errors = any(info.has_error for info in domain_infos)
+            
             should_notify = (
-                any(info.is_available for info in domain_infos)
-                or any(info.has_error for info in domain_infos)
-                or notify_all
+                has_available
+                or has_errors  # Always notify for errors (system issues)
+                or notify_all  # Always notify when explicitly requested
             )
 
             if should_notify and domain_infos:
