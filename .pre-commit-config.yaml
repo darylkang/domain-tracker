@@ -17,13 +17,6 @@ repos:
       - id: mixed-line-ending
         name: Fix mixed line endings
 
-  - repo: https://github.com/psf/black
-    rev: 24.4.2
-    hooks:
-      - id: black
-        name: Format Python code with Black
-        language_version: python3
-
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.6.9
     hooks:
