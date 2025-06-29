@@ -217,9 +217,9 @@ class TestWhoisClient:
         for invalid_domain in invalid_domains:
             # ACT & ASSERT: Should return False for invalid domains
             result = check_domain_availability(invalid_domain)
-            assert (
-                result is False
-            ), f"Should return False for invalid domain: {invalid_domain}"
+            assert result is False, (
+                f"Should return False for invalid domain: {invalid_domain}"
+            )
 
     def test_check_domain_availability_returns_false_for_pending_delete_status(
         self,
