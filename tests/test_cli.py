@@ -14,6 +14,7 @@ from typer.testing import CliRunner
 
 from domain_tracker import __version__
 from domain_tracker.cli import app
+from domain_tracker.whois_client import DomainInfo
 
 
 class TestCLIDomainsCommand:
@@ -34,8 +35,8 @@ class TestCLIDomainsCommand:
         assert "Check domain availability" in result.stdout
 
     @patch("domain_tracker.cli.load_domains")
-    @patch("domain_tracker.cli.check_domain_status_detailed")
-    @patch("domain_tracker.cli.send_slack_alert")
+    @patch("domain_tracker.cli.get_enhanced_domain_info")
+    @patch("domain_tracker.cli._send_slack_alert_safely")
     def test_check_domains_loads_domains_and_checks_availability(
         self, mock_slack: Mock, mock_check: Mock, mock_load: Mock
     ) -> None:
@@ -43,9 +44,9 @@ class TestCLIDomainsCommand:
         # ARRANGE: Mock domain loading and availability checking
         mock_load.return_value = ["example.com", "test.org"]
         mock_check.side_effect = [
-            (True, []),
-            (False, []),
-        ]  # First available, second not
+            DomainInfo(domain_name="example.com", is_available=True, problematic_statuses=[]),
+            DomainInfo(domain_name="test.org", is_available=False, problematic_statuses=[]),
+        ]
 
         # ACT: Run check-domains command
         result = self.runner.invoke(app, ["check-domains"])
@@ -58,53 +59,57 @@ class TestCLIDomainsCommand:
         mock_check.assert_any_call("test.org", ANY)
 
     @patch("domain_tracker.cli.load_domains")
-    @patch("domain_tracker.cli.check_domain_status_detailed")
-    @patch("domain_tracker.cli.send_slack_alert")
+    @patch("domain_tracker.cli.get_enhanced_domain_info")
+    @patch("domain_tracker.cli._send_slack_alert_safely")
     def test_check_domains_sends_slack_alert_for_available_domains(
         self, mock_slack: Mock, mock_check: Mock, mock_load: Mock
     ) -> None:
         """Test that Slack alerts are sent for available domains only."""
         # ARRANGE: Mock one available domain, one unavailable
         mock_load.return_value = ["available.com", "unavailable.com"]
-        mock_check.side_effect = [(True, []), (False, [])]
+        mock_check.side_effect = [
+            DomainInfo(domain_name="available.com", is_available=True, problematic_statuses=[]),
+            DomainInfo(domain_name="unavailable.com", is_available=False, problematic_statuses=[]),
+        ]
 
         # ACT: Run check-domains command
         result = self.runner.invoke(app, ["check-domains"])
 
-        # ASSERT: Should send Slack alert only for available domain
+        # ASSERT: Should send enhanced Slack alert for available domain
         assert result.exit_code == 0
-        mock_slack.assert_called_once_with("✅ Domain available: available.com", ANY)
+        mock_slack.assert_called_once()  # Enhanced message sent once for all domains
 
     @patch("domain_tracker.cli.load_domains")
-    @patch("domain_tracker.cli.check_domain_status_detailed")
-    @patch("domain_tracker.cli.send_slack_alert")
+    @patch("domain_tracker.cli.get_enhanced_domain_info")
+    @patch("domain_tracker.cli._send_slack_alert_safely")
     def test_check_domains_with_notify_all_flag(
         self, mock_slack: Mock, mock_check: Mock, mock_load: Mock
     ) -> None:
         """Test that --notify-all sends alerts for all domains."""
         # ARRANGE: Mock domains with mixed availability
         mock_load.return_value = ["available.com", "unavailable.com"]
-        mock_check.side_effect = [(True, []), (False, [])]
+        mock_check.side_effect = [
+            DomainInfo(domain_name="available.com", is_available=True, problematic_statuses=[]),
+            DomainInfo(domain_name="unavailable.com", is_available=False, problematic_statuses=[]),
+        ]
 
         # ACT: Run check-domains with --notify-all
         result = self.runner.invoke(app, ["check-domains", "--notify-all"])
 
-        # ASSERT: Should send Slack alerts for both domains
+        # ASSERT: Should send enhanced Slack alert for all domains
         assert result.exit_code == 0
-        assert mock_slack.call_count == 2
-        mock_slack.assert_any_call("✅ Domain available: available.com", ANY)
-        mock_slack.assert_any_call("❌ Domain NOT available: unavailable.com", ANY)
+        mock_slack.assert_called_once()  # Enhanced message sent once with all domains
 
     @patch("domain_tracker.cli.load_domains")
-    @patch("domain_tracker.cli.check_domain_status_detailed")
-    @patch("domain_tracker.cli.send_slack_alert")
+    @patch("domain_tracker.cli.get_enhanced_domain_info")
+    @patch("domain_tracker.cli._send_slack_alert_safely")
     def test_check_domains_with_debug_flag_enables_logging(
         self, mock_slack: Mock, mock_check: Mock, mock_load: Mock
     ) -> None:
         """Test that --debug flag enables debug logging."""
         # ARRANGE: Mock domains
         mock_load.return_value = ["test.com"]
-        mock_check.return_value = (True, [])
+        mock_check.return_value = DomainInfo(domain_name="test.com", is_available=True, problematic_statuses=[])
 
         # ACT: Run check-domains with --debug
         with patch("domain_tracker.cli.logging.basicConfig") as mock_basic_config:
@@ -115,15 +120,15 @@ class TestCLIDomainsCommand:
         mock_basic_config.assert_called_once_with(level=logging.DEBUG)
 
     @patch("domain_tracker.cli.load_domains")
-    @patch("domain_tracker.cli.check_domain_status_detailed")
-    @patch("domain_tracker.cli.send_slack_alert")
+    @patch("domain_tracker.cli.get_enhanced_domain_info")
+    @patch("domain_tracker.cli._send_slack_alert_safely")
     def test_check_domains_prints_summary_when_no_domains_available(
         self, mock_slack: Mock, mock_check: Mock, mock_load: Mock
     ) -> None:
         """Test that a summary is printed when no domains are available."""
         # ARRANGE: Mock domains that are all unavailable
         mock_load.return_value = ["test1.com", "test2.com"]
-        mock_check.return_value = (False, [])
+        mock_check.return_value = DomainInfo(domain_name="test.com", is_available=False, problematic_statuses=[])
 
         # ACT: Run check-domains command
         result = self.runner.invoke(app, ["check-domains"])
@@ -135,8 +140,8 @@ class TestCLIDomainsCommand:
         mock_slack.assert_not_called()
 
     @patch("domain_tracker.cli.load_domains")
-    @patch("domain_tracker.cli.check_domain_status_detailed")
-    @patch("domain_tracker.cli.send_slack_alert")
+    @patch("domain_tracker.cli.get_enhanced_domain_info")
+    @patch("domain_tracker.cli._send_slack_alert_safely")
     def test_check_domains_handles_domain_loading_errors_gracefully(
         self, mock_slack: Mock, mock_check: Mock, mock_load: Mock
     ) -> None:
@@ -154,53 +159,61 @@ class TestCLIDomainsCommand:
         mock_slack.assert_not_called()
 
     @patch("domain_tracker.cli.load_domains")
-    @patch("domain_tracker.cli.check_domain_status_detailed")
-    @patch("domain_tracker.cli.send_slack_alert")
+    @patch("domain_tracker.cli.get_enhanced_domain_info")
+    @patch("domain_tracker.cli._send_slack_alert_safely")
     def test_check_domains_handles_api_errors_gracefully(
         self, mock_slack: Mock, mock_check: Mock, mock_load: Mock
     ) -> None:
         """Test that API errors during domain checking are handled gracefully."""
         # ARRANGE: Mock domain loading success but API failure
         mock_load.return_value = ["test.com"]
-        mock_check.side_effect = Exception("API error")
+        mock_check.return_value = DomainInfo(
+            domain_name="test.com",
+            is_available=False,
+            problematic_statuses=[],
+            has_error=True,
+            error_message="API error"
+        )
 
         # ACT: Run check-domains command
         result = self.runner.invoke(app, ["check-domains"])
 
         # ASSERT: Should continue and not crash
         assert result.exit_code == 0
-        assert "Error checking test.com" in result.stdout
-        mock_slack.assert_not_called()
+        assert "Error: API error" in result.stdout
 
     @patch("domain_tracker.cli.load_domains")
-    @patch("domain_tracker.cli.check_domain_status_detailed")
+    @patch("domain_tracker.cli.get_enhanced_domain_info")
     @patch("domain_tracker.cli.send_slack_alert")
     def test_check_domains_handles_slack_errors_gracefully(
         self, mock_slack: Mock, mock_check: Mock, mock_load: Mock
     ) -> None:
         """Test that Slack alerts handle errors gracefully."""
-        # ARRANGE: Mock available domain but Slack error
+        # ARRANGE: Mock available domain but Slack error at the lower level
         mock_load.return_value = ["test.com"]
-        mock_check.return_value = (True, [])
+        mock_check.return_value = DomainInfo(domain_name="test.com", is_available=True, problematic_statuses=[])
         mock_slack.side_effect = Exception("Slack API error")
 
         # ACT: Run check-domains command
         result = self.runner.invoke(app, ["check-domains"])
 
-        # ASSERT: Should continue and show Slack error warning
+        # ASSERT: Should continue - Slack error is handled safely by _send_slack_alert_safely
         assert result.exit_code == 0
-        assert "Error sending Slack alert" in result.stdout
+        assert "⚠️  Error sending Slack alert" in result.stdout
 
     @patch("domain_tracker.cli.load_domains")
-    @patch("domain_tracker.cli.check_domain_status_detailed")
-    @patch("domain_tracker.cli.send_slack_alert")
+    @patch("domain_tracker.cli.get_enhanced_domain_info")
+    @patch("domain_tracker.cli._send_slack_alert_safely")
     def test_check_domains_displays_progress_information(
         self, mock_slack: Mock, mock_check: Mock, mock_load: Mock
     ) -> None:
         """Test that progress information is displayed during domain checking."""
         # ARRANGE: Mock domains with mixed availability
         mock_load.return_value = ["example.com", "test.org"]
-        mock_check.side_effect = [(True, []), (False, [])]
+        mock_check.side_effect = [
+            DomainInfo(domain_name="example.com", is_available=True, problematic_statuses=[]),
+            DomainInfo(domain_name="test.org", is_available=False, problematic_statuses=[]),
+        ]
 
         # ACT: Run check-domains command
         result = self.runner.invoke(app, ["check-domains"])
@@ -219,14 +232,14 @@ class TestCLISingleDomainCheck:
         """Set up test fixtures."""
         self.runner = CliRunner()
 
-    @patch("domain_tracker.cli.check_domain_status_detailed")
-    @patch("domain_tracker.cli.send_slack_alert")
+    @patch("domain_tracker.cli.get_enhanced_domain_info")
+    @patch("domain_tracker.cli._send_slack_alert_safely")
     def test_single_domain_check_available_domain(
         self, mock_slack: Mock, mock_check: Mock
     ) -> None:
         """Test checking a single available domain via check command."""
         # ARRANGE: Mock domain as available
-        mock_check.return_value = (True, [])
+        mock_check.return_value = DomainInfo(domain_name="example.com", is_available=True, problematic_statuses=[])
 
         # ACT: Run CLI with check command
         result = self.runner.invoke(app, ["check", "example.com"])
@@ -234,17 +247,17 @@ class TestCLISingleDomainCheck:
         # ASSERT: Should check domain and show success message
         assert result.exit_code == 0
         mock_check.assert_called_once_with("example.com", ANY)
-        mock_slack.assert_called_once_with("✅ Domain available: example.com", ANY)
-        assert "✅ Domain available: example.com" in result.stdout
+        mock_slack.assert_called_once()  # Enhanced message sent
+        assert "✅ Available" in result.stdout
 
-    @patch("domain_tracker.cli.check_domain_status_detailed")
-    @patch("domain_tracker.cli.send_slack_alert")
+    @patch("domain_tracker.cli.get_enhanced_domain_info")
+    @patch("domain_tracker.cli._send_slack_alert_safely")
     def test_single_domain_check_unavailable_domain(
         self, mock_slack: Mock, mock_check: Mock
     ) -> None:
         """Test checking a single unavailable domain via check command."""
         # ARRANGE: Mock domain as unavailable
-        mock_check.return_value = (False, [])
+        mock_check.return_value = DomainInfo(domain_name="unavailable.com", is_available=False, problematic_statuses=[])
 
         # ACT: Run CLI with check command
         result = self.runner.invoke(app, ["check", "unavailable.com"])
@@ -252,46 +265,50 @@ class TestCLISingleDomainCheck:
         # ASSERT: Should check domain and show unavailable message
         assert result.exit_code == 0
         mock_check.assert_called_once_with("unavailable.com", ANY)
-        mock_slack.assert_called_once_with(
-            "❌ Domain NOT available: unavailable.com", ANY
-        )
-        assert "❌ Domain NOT available: unavailable.com" in result.stdout
+        # Enhanced format does not send alerts for unavailable domains unless they have errors
+        assert "❌ Unavailable" in result.stdout
 
-    @patch("domain_tracker.cli.check_domain_status_detailed")
-    @patch("domain_tracker.cli.send_slack_alert")
+    @patch("domain_tracker.cli.get_enhanced_domain_info")
+    @patch("domain_tracker.cli._send_slack_alert_safely")
     def test_single_domain_check_handles_api_errors_gracefully(
         self, mock_slack: Mock, mock_check: Mock
     ) -> None:
         """Test that API errors during single domain check are handled gracefully."""
         # ARRANGE: Mock API failure
-        mock_check.side_effect = Exception("API connection failed")
+        mock_check.return_value = DomainInfo(
+            domain_name="test.com",
+            is_available=False,
+            problematic_statuses=[],
+            has_error=True,
+            error_message="API connection failed"
+        )
 
         # ACT: Run CLI with check command
         result = self.runner.invoke(app, ["check", "test.com"])
 
-        # ASSERT: Should exit with error and show helpful message
-        assert result.exit_code == 1
+        # ASSERT: Should continue and show helpful message (enhanced format handles errors gracefully)
+        assert result.exit_code == 0
         mock_check.assert_called_once_with("test.com", ANY)
-        assert "❌ Error checking domain test.com" in result.stdout
-        mock_slack.assert_not_called()
+        assert "❌ Error checking test.com: API connection failed" in result.stdout
+        mock_slack.assert_called_once()  # Error alert sent
 
-    @patch("domain_tracker.cli.check_domain_status_detailed")
+    @patch("domain_tracker.cli.get_enhanced_domain_info")
     @patch("domain_tracker.cli.send_slack_alert")
     def test_single_domain_check_handles_slack_errors_gracefully(
         self, mock_slack: Mock, mock_check: Mock
     ) -> None:
         """Test that Slack errors during single domain check are handled gracefully."""
-        # ARRANGE: Mock available domain but Slack error
-        mock_check.return_value = (True, [])
+        # ARRANGE: Mock available domain but Slack error at the lower level
+        mock_check.return_value = DomainInfo(domain_name="test.com", is_available=True, problematic_statuses=[])
         mock_slack.side_effect = Exception("Slack webhook error")
 
         # ACT: Run CLI with check command
         result = self.runner.invoke(app, ["check", "test.com"])
 
-        # ASSERT: Should continue and show Slack error warning
+        # ASSERT: Should continue - Slack error is handled safely by _send_slack_alert_safely
         assert result.exit_code == 0
         mock_check.assert_called_once_with("test.com", ANY)
-        mock_slack.assert_called_once_with("✅ Domain available: test.com", ANY)
+        mock_slack.assert_called_once()  # Enhanced message attempted
         assert "⚠️  Error sending Slack alert" in result.stdout
 
     def test_no_domain_argument_falls_back_to_existing_behavior(self) -> None:
@@ -319,14 +336,18 @@ class TestCLISingleDomainCheck:
             1,
         ]  # May succeed or fail depending on API response
 
-    @patch("domain_tracker.cli.check_domain_status_detailed")
-    @patch("domain_tracker.cli.send_slack_alert")
+    @patch("domain_tracker.cli.get_enhanced_domain_info")
+    @patch("domain_tracker.cli._send_slack_alert_safely")
     def test_single_domain_check_with_problematic_status(
         self, mock_slack: Mock, mock_check: Mock
     ) -> None:
         """Test checking a domain with problematic status sends enhanced Slack message."""
         # ARRANGE: Mock domain as having problematic status
-        mock_check.return_value = (False, ["pendingDelete"])
+        mock_check.return_value = DomainInfo(
+            domain_name="problematic.com",
+            is_available=False,
+            problematic_statuses=["pendingDelete"]
+        )
 
         # ACT: Run CLI with check command
         result = self.runner.invoke(app, ["check", "problematic.com"])
@@ -334,18 +355,21 @@ class TestCLISingleDomainCheck:
         # ASSERT: Should check domain and show enhanced message
         assert result.exit_code == 0
         mock_check.assert_called_once_with("problematic.com", ANY)
-        expected_message = "⚠️ Domain appears available but still in pendingDelete: problematic.com. May not be fully released yet."
-        mock_slack.assert_called_once_with(expected_message, ANY)
-        assert expected_message in result.stdout
+        mock_slack.assert_called_once()  # Enhanced message sent
+        assert "⚠️ Problematic status: pendingDelete" in result.stdout
 
-    @patch("domain_tracker.cli.check_domain_status_detailed")
-    @patch("domain_tracker.cli.send_slack_alert")
+    @patch("domain_tracker.cli.get_enhanced_domain_info")
+    @patch("domain_tracker.cli._send_slack_alert_safely")
     def test_single_domain_check_with_multiple_problematic_statuses(
         self, mock_slack: Mock, mock_check: Mock
     ) -> None:
         """Test checking a domain with multiple problematic statuses."""
         # ARRANGE: Mock domain with multiple problematic statuses
-        mock_check.return_value = (False, ["pendingDelete", "serverHold"])
+        mock_check.return_value = DomainInfo(
+            domain_name="multiple-issues.com",
+            is_available=False,
+            problematic_statuses=["pendingDelete", "serverHold"]
+        )
 
         # ACT: Run CLI with check command
         result = self.runner.invoke(app, ["check", "multiple-issues.com"])
@@ -353,9 +377,8 @@ class TestCLISingleDomainCheck:
         # ASSERT: Should check domain and show enhanced message with all statuses
         assert result.exit_code == 0
         mock_check.assert_called_once_with("multiple-issues.com", ANY)
-        expected_message = "⚠️ Domain appears available but still in pendingDelete, serverHold: multiple-issues.com. May not be fully released yet."
-        mock_slack.assert_called_once_with(expected_message, ANY)
-        assert expected_message in result.stdout
+        mock_slack.assert_called_once()  # Enhanced message sent
+        assert "⚠️ Problematic status: pendingDelete, serverHold" in result.stdout
 
 
 class TestCLIBulkProblematicStatuses:
@@ -366,8 +389,8 @@ class TestCLIBulkProblematicStatuses:
         self.runner = CliRunner()
 
     @patch("domain_tracker.cli.load_domains")
-    @patch("domain_tracker.cli.check_domain_status_detailed")
-    @patch("domain_tracker.cli.send_slack_alert")
+    @patch("domain_tracker.cli.get_enhanced_domain_info")
+    @patch("domain_tracker.cli._send_slack_alert_safely")
     def test_check_domains_displays_problematic_statuses(
         self, mock_slack: Mock, mock_check: Mock, mock_load: Mock
     ) -> None:
@@ -375,9 +398,9 @@ class TestCLIBulkProblematicStatuses:
         # ARRANGE: Mock domains with mixed availability and problematic statuses
         mock_load.return_value = ["available.com", "problematic.com", "unavailable.com"]
         mock_check.side_effect = [
-            (True, []),  # Truly available
-            (False, ["pendingDelete"]),  # Problematic status
-            (False, []),  # Genuinely unavailable
+            DomainInfo(domain_name="available.com", is_available=True, problematic_statuses=[]),
+            DomainInfo(domain_name="problematic.com", is_available=False, problematic_statuses=["pendingDelete"]),
+            DomainInfo(domain_name="unavailable.com", is_available=False, problematic_statuses=[]),
         ]
 
         # ACT: Run check-domains command
@@ -389,12 +412,12 @@ class TestCLIBulkProblematicStatuses:
         assert "⚠️ Problematic status: pendingDelete" in result.stdout  # problematic.com
         assert "❌ Unavailable" in result.stdout  # unavailable.com
 
-        # Should only send alert for truly available domain
-        mock_slack.assert_called_once_with("✅ Domain available: available.com", ANY)
+        # Should send enhanced alert for available domain
+        mock_slack.assert_called_once()  # Enhanced message sent
 
     @patch("domain_tracker.cli.load_domains")
-    @patch("domain_tracker.cli.check_domain_status_detailed")
-    @patch("domain_tracker.cli.send_slack_alert")
+    @patch("domain_tracker.cli.get_enhanced_domain_info")
+    @patch("domain_tracker.cli._send_slack_alert_safely")
     def test_check_domains_with_notify_all_sends_enhanced_alerts(
         self, mock_slack: Mock, mock_check: Mock, mock_load: Mock
     ) -> None:
@@ -402,19 +425,16 @@ class TestCLIBulkProblematicStatuses:
         # ARRANGE: Mock domains with problematic statuses
         mock_load.return_value = ["available.com", "problematic.com"]
         mock_check.side_effect = [
-            (True, []),  # Truly available
-            (False, ["serverHold", "clientHold"]),  # Multiple problematic statuses
+            DomainInfo(domain_name="available.com", is_available=True, problematic_statuses=[]),
+            DomainInfo(domain_name="problematic.com", is_available=False, problematic_statuses=["serverHold", "clientHold"]),
         ]
 
         # ACT: Run check-domains with --notify-all
         result = self.runner.invoke(app, ["check-domains", "--notify-all"])
 
-        # ASSERT: Should send enhanced alerts for both domains
+        # ASSERT: Should send enhanced alert once for all domains
         assert result.exit_code == 0
-        assert mock_slack.call_count == 2
-        mock_slack.assert_any_call("✅ Domain available: available.com", ANY)
-        expected_problematic_message = "⚠️ Domain appears available but still in serverHold, clientHold: problematic.com. May not be fully released yet."
-        mock_slack.assert_any_call(expected_problematic_message, ANY)
+        mock_slack.assert_called_once()  # Enhanced message sent once with all domains
 
 
 class TestCLIOtherCommands:

@@ -398,9 +398,7 @@ class TestEnhancedSlackMessages:
 
         # ASSERT: Should include error notification (no priority alert in new format for errors)
         # Note: New format doesn't include channel notification for errors, only for available domains
-        assert (
-            "🚨 *error-domain.com*" in message
-        )  # Error icon with markdown formatting
+        assert "🚨 *error-domain.com*" in message  # Error icon with markdown formatting
         assert "Status: Error (API request timeout)" in message
 
     def test_format_enhanced_slack_message_handles_missing_dates(self) -> None:
@@ -765,7 +763,9 @@ class TestRedesignedSlackMessages:
         check_time = datetime(2024, 6, 29, 4, 56, 0, tzinfo=UTC)
 
         # ACT: Format message with manual trigger type
-        result = format_enhanced_slack_message([domain_info], check_time, trigger_type="manual")
+        result = format_enhanced_slack_message(
+            [domain_info], check_time, trigger_type="manual"
+        )
 
         # ASSERT: Should show manual trigger message
         assert "👤 Triggered by: Manual CLI check" in result
@@ -782,7 +782,9 @@ class TestRedesignedSlackMessages:
         check_time = datetime(2024, 6, 29, 4, 56, 0, tzinfo=UTC)
 
         # ACT: Format message with scheduled trigger type
-        result = format_enhanced_slack_message([domain_info], check_time, trigger_type="scheduled")
+        result = format_enhanced_slack_message(
+            [domain_info], check_time, trigger_type="scheduled"
+        )
 
         # ASSERT: Should show scheduled trigger message
         assert "👤 Triggered by: Scheduled hourly check" in result

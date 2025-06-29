@@ -148,7 +148,9 @@ def _format_domain_status(domain_info: DomainInfo) -> str:
 
 
 def format_enhanced_slack_message(
-    domain_infos: list[DomainInfo], check_time: datetime, trigger_type: str = "scheduled"
+    domain_infos: list[DomainInfo],
+    check_time: datetime,
+    trigger_type: str = "scheduled",
 ) -> str:
     """
     Format domain check results into a rich, redesigned Slack message.
@@ -166,7 +168,7 @@ def format_enhanced_slack_message(
         trigger_message = "👤 Triggered by: Manual CLI check"
     else:
         trigger_message = "👤 Triggered by: Scheduled hourly check"
-    
+
     # Header section
     header_lines = [
         "🔍 *Domain Check Summary*",
