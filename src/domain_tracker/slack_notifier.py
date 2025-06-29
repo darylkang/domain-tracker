@@ -39,7 +39,7 @@ def send_slack_alert(message: str, settings: Settings | None = None) -> None:
 
     try:
         response = requests.post(
-            settings.slack_webhook_url,
+            str(settings.slack_webhook_url),  # Cast HttpUrl to str
             json=payload,
             headers=headers,
             timeout=10,
