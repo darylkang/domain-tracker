@@ -136,46 +136,50 @@ def _format_domain_section(domain_info: DomainInfo) -> list[str]:
     """
     lines = []
 
-    # Determine status and icon based on test expectations
+    # Format domain name as clickable link
+    domain_link = _format_domain_link(domain_info.domain_name)
+
+    # Determine status and format based on the rich template
     if domain_info.has_error:
-        lines.append(f"🚨 *{domain_info.domain_name}*")
+        lines.append(f"🚨 *{domain_link}* — *Error*")
         if domain_info.error_message:
-            lines.append(f"• Status: Error ({domain_info.error_message})")
+            lines.append(f"• ⚠️ {domain_info.error_message}")
         else:
-            lines.append("• Status: Error")
+            lines.append("• ⚠️ Error occurred during lookup")
 
     elif domain_info.is_available:
-        lines.append(f"✅ *{domain_info.domain_name}*")
-        lines.append("• Status: Available")
-        lines.append("• 🔔 <!channel> — Action needed!")
+        lines.append(f":white_check_mark: *{domain_link}* — *Available*")
+        lines.append("• :bell: <!channel> — Action needed!")
 
     else:
-        lines.append(f"❌ *{domain_info.domain_name}*")
-        lines.append("• Status: Unavailable")
+        lines.append(f":x: *{domain_link}* — *Unavailable*")
 
-        # Add metadata for unavailable domains
+        # Add expiration metadata with relative time
         if domain_info.expiration_date:
             # Convert to New York timezone for consistent display
             ny_tz = ZoneInfo("America/New_York")
             expiry_ny = domain_info.expiration_date.astimezone(ny_tz)
             expiry_formatted = expiry_ny.strftime("%b %-d, %Y")
-            lines.append(f"• Expires: {expiry_formatted}")
+            relative_time = _get_relative_time_text(domain_info.expiration_date)
+            lines.append(f"📅 *Expiry:* {expiry_formatted} {relative_time}")
 
+        # Add creation date metadata
         if domain_info.creation_date:
-            # Convert to New York timezone for consistent display
             ny_tz = ZoneInfo("America/New_York")
             created_ny = domain_info.creation_date.astimezone(ny_tz)
             created_formatted = created_ny.strftime("%b %-d, %Y")
-            lines.append(f"• Created: {created_formatted}")
+            lines.append(f"🆕 *Created:* {created_formatted}")
 
+        # Add registrant information if available
         if domain_info.registrant_name:
-            lines.append(f"• Registrant: {domain_info.registrant_name}")
+            lines.append(f"👤 *Registrant:* {domain_info.registrant_name}")
 
         if domain_info.registrant_organization:
-            lines.append(f"• Organization: {domain_info.registrant_organization}")
+            lines.append(f"🏢 *Organization:* {domain_info.registrant_organization}")
 
-        if domain_info.registrar_name:
-            lines.append(f"• Registrar: {domain_info.registrar_name}")
+        # Add registrar details
+        registrar_lines = _format_registrar_details(domain_info)
+        lines.extend(registrar_lines)
 
     return lines
 
@@ -197,14 +201,39 @@ def format_enhanced_slack_message(
         Formatted Slack message string
     """
     if not domain_infos:
-        return ":warning: No domains to check"
+        # Special heartbeat message format for when no domains available
+        ny_tz = ZoneInfo("America/New_York")
+        check_time_ny = check_time.astimezone(ny_tz)
+        tz_name = "EST" if check_time_ny.dst() == timedelta(0) else "EDT"
+        timestamp = check_time_ny.strftime(f"%-I:%M %p {tz_name} • %b %-d, %Y")
+
+        trigger_text = (
+            "Manual CLI Check" if trigger_type == "manual" else "Scheduled hourly check"
+        )
+
+        lines = [
+            ":robot_face: *Domain Tracker: "
+            + (
+                "Scheduled Hourly Check"
+                if trigger_type == "scheduled"
+                else "Manual Check"
+            )
+            + "*",
+            "",
+            ":bar_chart: No domains currently being monitored",
+            "",
+            f":clock10: Check completed at: {timestamp}",
+            f":repeat: Trigger: {trigger_text}",
+            ":heartbeat: This is a heartbeat notification confirming the automation is running correctly.",
+        ]
+        return "\n".join(lines)
 
     lines = []
 
-    # Header section - using the format tests expect
-    lines.append("🔍 *Domain Check Summary*")
+    # Header section - rich template format
+    lines.append(":mag_right: *Domain Check Results*")
 
-    # Format timestamp in New York timezone
+    # Format timestamp in New York timezone with backticks for code formatting
     ny_tz = ZoneInfo("America/New_York")
     check_time_ny = check_time.astimezone(ny_tz)
 
@@ -212,7 +241,7 @@ def format_enhanced_slack_message(
     tz_name = "EST" if check_time_ny.dst() == timedelta(0) else "EDT"
     timestamp = check_time_ny.strftime(f"%-I:%M %p {tz_name} • %b %-d, %Y")
 
-    lines.append(f"🗓️ {timestamp}")
+    lines.append(f"📅 *Checked at:* `{timestamp}`")
 
     # Trigger type
     trigger_text = (
@@ -221,21 +250,17 @@ def format_enhanced_slack_message(
     lines.append(f"🔁 *Triggered by:* {trigger_text}")
     lines.append("")
 
-    # Domain sections with separators for multiple domains
-    section_break = "━━━━━━━━━━━━━━━━━━━━"
+    # Domain sections with separators
+    section_break = "━━━━━━━━━━━━━━━━━━━━━━━"
 
     for i, domain_info in enumerate(domain_infos):
-        if len(domain_infos) > 1:
-            lines.append(section_break)
+        lines.append(section_break)
         domain_lines = _format_domain_section(domain_info)
         lines.extend(domain_lines)
 
-    if len(domain_infos) > 1:
-        lines.append(section_break)
+    lines.append(section_break)
 
-    lines.append("")
-
-    # Summary section
+    # Summary section with rich template format
     available_count = sum(
         1 for info in domain_infos if info.is_available and not info.has_error
     )
@@ -244,10 +269,10 @@ def format_enhanced_slack_message(
     )
     error_count = sum(1 for info in domain_infos if info.has_error)
 
-    lines.append("📊 *Summary:*")
-    lines.append(
-        f"• {available_count} available • {unavailable_count} unavailable • {error_count} errors"
-    )
+    lines.append("📊 *Summary*")
+    lines.append(f":white_check_mark: *Available:* {available_count}")
+    lines.append(f":x: *Unavailable:* {unavailable_count}")
+    lines.append(f":warning: *Errors:* {error_count}")
 
     return "\n".join(lines)
 

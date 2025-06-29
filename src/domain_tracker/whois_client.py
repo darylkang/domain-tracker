@@ -198,11 +198,29 @@ def check_domain_status_detailed(
                 print(f"🔧 DEBUG: Domain {domain} not registered (MISSING_WHOIS_DATA)")
             return True, []
 
+        # Handle other data errors conservatively
+        if data_error in ["NO_DATA", "INCOMPLETE_DATA"]:
+            if debug:
+                print(
+                    f"🔧 DEBUG: Domain {domain} has data error: {data_error} - treating as unavailable for safety"
+                )
+            return False, ["dataError"]
+
+        # Check registry data for additional data errors
+        registry_data = whois_record.get("registryData", {})
+        registry_data_error = registry_data.get("dataError")
+        if registry_data_error in ["NO_DATA", "INCOMPLETE_DATA"]:
+            if debug:
+                print(
+                    f"🔧 DEBUG: Domain {domain} has registry data error: {registry_data_error} - treating as unavailable for safety"
+                )
+            return False, ["registryDataError"]
+
         # Extract domain availability status from Full WHOIS API
         availability_status = str(whois_record.get("domainAvailability", "")).upper()
 
-        # If not marked as available, return False immediately
-        if availability_status not in ["AVAILABLE", ""]:
+        # If not marked as explicitly available, return False immediately
+        if availability_status != "AVAILABLE":
             if debug:
                 print(
                     f"🔧 DEBUG: Domain {domain} marked as {availability_status} by Full WHOIS API"
@@ -224,7 +242,6 @@ def check_domain_status_detailed(
                 all_statuses.extend(_parse_status_string(main_status))
 
         # Get status from registry data (can be string or list)
-        registry_data = whois_record.get("registryData", {})
         registry_status = registry_data.get("status", "")
         if registry_status:
             if debug:
@@ -507,6 +524,36 @@ def get_enhanced_domain_info(
                 problematic_statuses=[],
             )
 
+        # Handle other data errors conservatively
+        if data_error in ["NO_DATA", "INCOMPLETE_DATA"]:
+            if debug:
+                print(
+                    f"🔧 DEBUG: Enhanced check - Domain {domain} has data error: {data_error} - treating as unavailable for safety"
+                )
+            return DomainInfo(
+                domain_name=domain,
+                is_available=False,
+                problematic_statuses=["dataError"],
+                has_error=True,
+                error_message=f"API data error: {data_error}",
+            )
+
+        # Check registry data for additional data errors
+        registry_data = whois_record.get("registryData", {})
+        registry_data_error = registry_data.get("dataError")
+        if registry_data_error in ["NO_DATA", "INCOMPLETE_DATA"]:
+            if debug:
+                print(
+                    f"🔧 DEBUG: Enhanced check - Domain {domain} has registry data error: {registry_data_error} - treating as unavailable for safety"
+                )
+            return DomainInfo(
+                domain_name=domain,
+                is_available=False,
+                problematic_statuses=["registryDataError"],
+                has_error=True,
+                error_message=f"Registry data error: {registry_data_error}",
+            )
+
         # Extract basic availability and status from Full WHOIS API
         availability = whois_record.get("domainAvailability", "UNAVAILABLE")
 
@@ -519,7 +566,6 @@ def get_enhanced_domain_info(
             else:
                 all_statuses.extend(_parse_status_string(main_status))
 
-        registry_data = whois_record.get("registryData", {})
         registry_status = registry_data.get("status", "")
         if registry_status:
             if isinstance(registry_status, list):
@@ -543,10 +589,14 @@ def get_enhanced_domain_info(
                 f"🔧 DEBUG: Enhanced check - Found problematic statuses for {domain}: {problematic_statuses}"
             )
 
-        # Determine final availability (considering problematic statuses)
-        is_available = (availability == "AVAILABLE" or availability == "") and len(
-            problematic_statuses
-        ) == 0
+        # Determine final availability (more conservative approach)
+        # Only mark as available if explicitly marked available AND no problematic statuses
+        is_available = (availability == "AVAILABLE") and len(problematic_statuses) == 0
+
+        if debug:
+            print(
+                f"🔧 DEBUG: Enhanced check - Final availability for {domain}: {is_available} (availability={availability}, problematic_count={len(problematic_statuses)})"
+            )
 
         # Parse dates from Full WHOIS API (try both main record and registry data)
         expiration_date = (
