@@ -1,8 +1,8 @@
 """
-WhoisXML API client for domain availability checking.
+Client for WhoisXML API to check domain availability and get detailed domain information.
 
-This module provides functionality to check domain availability using the
-WhoisXML API service with robust error handling and validation.
+This module provides functions to interact with the WhoisXML API for domain
+availability checking and extracting detailed domain information.
 """
 
 from __future__ import annotations
@@ -25,12 +25,50 @@ MAX_DOMAIN_LENGTH = 253
 
 # Domain statuses that indicate a domain is not truly available
 PROBLEMATIC_DOMAIN_STATUSES = {
+    # Delete/Expiration related statuses
+    "pendingdelete",
     "pendingdelete",
     "redemptionperiod",
+    "renewperiod",
+
+    # Hold statuses
     "clienthold",
     "serverhold",
-    "renewperiod",
+
+    # Transfer related statuses
     "transferperiod",
+    "pendingtransfer",
+    "clienttransferprohibited",
+    "servertransferprohibited",
+
+    # Update/Delete restrictions that may indicate issues
+    "clientdeleteprohibited",
+    "serverdeleteprohibited",
+    "clientupdateprohibited",
+    "serverupdateprohibited",
+
+    # Verification and registration issues
+    "registrantverificationpending",
+    "pendingverification",
+    "pendingnotification",
+    "addperiod",
+    "autorenewperiod",
+
+    # Additional potentially problematic statuses
+    "pendingcreate",
+    "pendingupdate",
+    "pendingrenew",
+    "pendingverification",
+    "pendingdelete",
+    "pendingrelease",
+    "pendingrebill",
+    "pendingrestore",
+}
+
+# Additional keywords that might indicate problematic status in raw text
+PROBLEMATIC_KEYWORDS = {
+    "pending", "hold", "prohibited", "redemption", "grace",
+    "locked", "suspended", "expired", "quarantine", "frozen"
 }
 
 
@@ -81,7 +119,7 @@ def check_domain_availability(domain: str, settings: Settings | None = None) -> 
 
 
 def check_domain_status_detailed(
-    domain: str, settings: Settings | None = None
+    domain: str, settings: Settings | None = None, debug: bool = False
 ) -> tuple[bool, list[str]]:
     """
     Check domain availability and return detailed status information.
@@ -89,6 +127,7 @@ def check_domain_status_detailed(
     Args:
         domain: Domain name to check (e.g., 'example.com').
         settings: Settings instance with API configuration. If None, loads from environment.
+        debug: Enable debug output including raw API responses.
 
     Returns:
         Tuple of (is_available, problematic_statuses):
@@ -133,27 +172,47 @@ def check_domain_status_detailed(
             # Invalid JSON response - return False (conservative approach)
             return False, []
 
+        # Debug output: Show raw API response
+        if debug:
+            print(f"\n🔧 DEBUG: Raw API response for {domain}:")
+            print(f"   URL: {response.url}")
+            print(f"   Status Code: {response.status_code}")
+            print(f"   Raw Response: {json.dumps(response_data, indent=2)}")
+            print("-" * 60)
+
         # Extract domain availability status
         domain_info = response_data.get("DomainInfo", {})
         availability_status = str(domain_info.get("domainAvailability", "")).upper()
 
         # If not marked as available, return False immediately
         if availability_status != "AVAILABLE":
+            if debug:
+                print(f"🔧 DEBUG: Domain {domain} marked as {availability_status} by API")
             return False, []
 
         # Check for problematic statuses
         domain_statuses = domain_info.get("status", [])
+        if debug:
+            print(f"🔧 DEBUG: Domain {domain} statuses from API: {domain_statuses}")
+
         problematic_statuses = _extract_problematic_statuses(domain_statuses)
+
+        if debug and problematic_statuses:
+            print(f"🔧 DEBUG: Found problematic statuses for {domain}: {problematic_statuses}")
 
         # Domain is considered available only if it's marked available AND has no problematic statuses
         is_truly_available = len(problematic_statuses) == 0
 
         return is_truly_available, problematic_statuses
 
-    except (Timeout, ConnectionError, RequestException):
+    except (Timeout, ConnectionError, RequestException) as e:
+        if debug:
+            print(f"🔧 DEBUG: Network error for {domain}: {e}")
         # Network errors - return False (conservative approach)
         return False, []
-    except Exception:
+    except Exception as e:
+        if debug:
+            print(f"🔧 DEBUG: Unexpected error for {domain}: {e}")
         # Any other unexpected error - return False (conservative approach)
         return False, []
 
@@ -161,6 +220,11 @@ def check_domain_status_detailed(
 def _extract_problematic_statuses(domain_statuses: list[str] | None) -> list[str]:
     """
     Extract problematic statuses from the domain status list.
+
+    This function now performs more comprehensive checking including:
+    - Exact matches for known problematic statuses
+    - Partial string matching for status keywords
+    - Better normalization and parsing of complex status strings
 
     Args:
         domain_statuses: List of domain statuses from the API response.
@@ -174,14 +238,71 @@ def _extract_problematic_statuses(domain_statuses: list[str] | None) -> list[str
     problematic_found = []
 
     for status in domain_statuses:
-        # Normalize status to lowercase and remove spaces for comparison
-        normalized_status = str(status).lower().replace(" ", "")
+        if not status:
+            continue
 
+        # Convert to string and normalize for comparison
+        status_str = str(status).strip()
+
+        # Skip empty statuses
+        if not status_str:
+            continue
+
+        # Normalize status: lowercase, remove spaces, parentheses, and URLs
+        # Many statuses come in format like "clientDeleteProhibited (https://www.icann.org/epp#clientDeleteProhibited)"
+        normalized_status = status_str.lower()
+
+        # Extract the actual status code from complex format
+        if '(' in normalized_status:
+            normalized_status = normalized_status.split('(')[0].strip()
+
+        # Remove common separators and extra whitespace
+        normalized_status = normalized_status.replace(' ', '').replace('-', '').replace('_', '')
+
+        # Check for exact matches first
         if normalized_status in PROBLEMATIC_DOMAIN_STATUSES:
-            # Add the original normalized camelCase format for consistent reporting
             problematic_found.append(_normalize_status_name(normalized_status))
+            continue
 
-    return problematic_found
+        # Check for partial matches using keywords
+        status_lower = status_str.lower()
+        for keyword in PROBLEMATIC_KEYWORDS:
+            if keyword in status_lower:
+                # Found a problematic keyword, extract a meaningful status name
+                if keyword == "pending" and "delete" in status_lower:
+                    problematic_found.append("pendingDelete")
+                elif keyword == "hold":
+                    if "client" in status_lower:
+                        problematic_found.append("clientHold")
+                    elif "server" in status_lower:
+                        problematic_found.append("serverHold")
+                    else:
+                        problematic_found.append("hold")
+                elif keyword == "redemption":
+                    problematic_found.append("redemptionPeriod")
+                elif keyword == "prohibited":
+                    if "transfer" in status_lower:
+                        problematic_found.append("transferProhibited")
+                    elif "delete" in status_lower:
+                        problematic_found.append("deleteProhibited")
+                    elif "update" in status_lower:
+                        problematic_found.append("updateProhibited")
+                    else:
+                        problematic_found.append("prohibited")
+                else:
+                    # Use the keyword as the problematic status
+                    problematic_found.append(keyword.title())
+                break
+
+    # Remove duplicates while preserving order
+    seen = set()
+    unique_problematic = []
+    for status in problematic_found:
+        if status not in seen:
+            seen.add(status)
+            unique_problematic.append(status)
+
+    return unique_problematic
 
 
 def _normalize_status_name(status: str) -> str:
@@ -246,7 +367,7 @@ def _is_valid_domain_format(domain: str) -> bool:
 
 
 def get_enhanced_domain_info(
-    domain: str, settings: Settings | None = None
+    domain: str, settings: Settings | None = None, debug: bool = False
 ) -> DomainInfo:
     """
     Get enhanced domain information from WhoisXML API.
@@ -258,6 +379,7 @@ def get_enhanced_domain_info(
     Args:
         domain: Domain name to check (e.g., 'example.com')
         settings: Optional settings instance for API configuration
+        debug: Enable debug output including raw API responses
 
     Returns:
         DomainInfo: Enhanced domain information object
@@ -280,14 +402,30 @@ def get_enhanced_domain_info(
         response.raise_for_status()
 
         data = response.json()
+
+        # Debug output: Show raw API response
+        if debug:
+            print(f"\n🔧 DEBUG: Enhanced API response for {domain}:")
+            print(f"   URL: {response.url}")
+            print(f"   Status Code: {response.status_code}")
+            print(f"   Raw Response: {json.dumps(data, indent=2)}")
+            print("-" * 60)
+
         domain_data = data.get("DomainInfo", {})
 
         # Extract basic availability and status
         availability = domain_data.get("domainAvailability", "UNAVAILABLE")
         statuses = domain_data.get("status", [])
 
+        if debug:
+            print(f"🔧 DEBUG: Enhanced check - Domain {domain} availability: {availability}")
+            print(f"🔧 DEBUG: Enhanced check - Domain {domain} statuses: {statuses}")
+
         # Check for problematic statuses
         problematic_statuses = _get_problematic_statuses(statuses)
+
+        if debug and problematic_statuses:
+            print(f"🔧 DEBUG: Enhanced check - Found problematic statuses for {domain}: {problematic_statuses}")
 
         # Determine final availability (considering problematic statuses)
         is_available = availability == "AVAILABLE" and len(problematic_statuses) == 0
@@ -318,6 +456,8 @@ def get_enhanced_domain_info(
         )
 
     except (RequestException, Timeout, ConnectionError) as e:
+        if debug:
+            print(f"🔧 DEBUG: Enhanced check network error for {domain}: {e}")
         logging.error(f"Failed to get enhanced domain info for {domain}: {e}")
         return DomainInfo(
             domain_name=domain,
@@ -327,6 +467,8 @@ def get_enhanced_domain_info(
             error_message=str(e),
         )
     except Exception as e:
+        if debug:
+            print(f"🔧 DEBUG: Enhanced check unexpected error for {domain}: {e}")
         logging.error(f"Unexpected error getting domain info for {domain}: {e}")
         return DomainInfo(
             domain_name=domain,
@@ -363,35 +505,89 @@ def _parse_api_date(date_string: str | None) -> datetime | None:
         return None
 
 
-def _get_problematic_statuses(statuses: list[str]) -> list[str]:
+def _get_problematic_statuses(statuses: list[str] | None) -> list[str]:
     """
-    Extract problematic domain statuses.
+    Check for problematic domain statuses that indicate the domain may not be truly available.
+
+    This function now performs comprehensive checking including:
+    - Exact matches for known problematic statuses
+    - Partial string matching for status keywords
+    - Better normalization and parsing of complex status strings
 
     Args:
-        statuses: List of domain status strings from API
+        statuses: List of domain statuses from API response
 
     Returns:
-        List of problematic status strings
+        List of found problematic statuses
     """
     if not statuses:
         return []
 
-    problematic = [
-        "pendingDelete",
-        "pendingRestore",
-        "redemptionPeriod",
-        "serverHold",
-        "clientHold",
-        "renewPeriod",
-        "transferPeriod",
-    ]
+    problematic_found = []
 
-    # Check each status (case insensitive)
-    found_problematic = []
     for status in statuses:
-        for prob_status in problematic:
-            if status.lower() == prob_status.lower():
-                found_problematic.append(status)
+        if not status:
+            continue
+
+        # Convert to string and normalize for comparison
+        status_str = str(status).strip()
+
+        # Skip empty statuses
+        if not status_str:
+            continue
+
+        # Normalize status: lowercase, remove spaces, parentheses, and URLs
+        # Many statuses come in format like "clientDeleteProhibited (https://www.icann.org/epp#clientDeleteProhibited)"
+        normalized_status = status_str.lower()
+
+        # Extract the actual status code from complex format
+        if '(' in normalized_status:
+            normalized_status = normalized_status.split('(')[0].strip()
+
+        # Remove common separators and extra whitespace
+        normalized_status = normalized_status.replace(' ', '').replace('-', '').replace('_', '')
+
+        # Check for exact matches first
+        if normalized_status in PROBLEMATIC_DOMAIN_STATUSES:
+            problematic_found.append(_normalize_status_name(normalized_status))
+            continue
+
+        # Check for partial matches using keywords
+        status_lower = status_str.lower()
+        for keyword in PROBLEMATIC_KEYWORDS:
+            if keyword in status_lower:
+                # Found a problematic keyword, extract a meaningful status name
+                if keyword == "pending" and "delete" in status_lower:
+                    problematic_found.append("pendingDelete")
+                elif keyword == "hold":
+                    if "client" in status_lower:
+                        problematic_found.append("clientHold")
+                    elif "server" in status_lower:
+                        problematic_found.append("serverHold")
+                    else:
+                        problematic_found.append("hold")
+                elif keyword == "redemption":
+                    problematic_found.append("redemptionPeriod")
+                elif keyword == "prohibited":
+                    if "transfer" in status_lower:
+                        problematic_found.append("transferProhibited")
+                    elif "delete" in status_lower:
+                        problematic_found.append("deleteProhibited")
+                    elif "update" in status_lower:
+                        problematic_found.append("updateProhibited")
+                    else:
+                        problematic_found.append("prohibited")
+                else:
+                    # Use the keyword as the problematic status
+                    problematic_found.append(keyword.title())
                 break
 
-    return found_problematic
+    # Remove duplicates while preserving order
+    seen = set()
+    unique_problematic = []
+    for status in problematic_found:
+        if status not in seen:
+            seen.add(status)
+            unique_problematic.append(status)
+
+    return unique_problematic

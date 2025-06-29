@@ -63,7 +63,7 @@ class TestDomainCheckService:
         result = service.check_single_domain("example.com", use_enhanced_format=True)
 
         # ASSERT: Should use enhanced format and return result
-        mock_get_enhanced.assert_called_once_with("example.com", service.settings)
+        mock_get_enhanced.assert_called_once_with("example.com", service.settings, debug=False)
         assert result is mock_domain_info
 
     @patch("domain_tracker.core.check_domain_status_detailed")
@@ -78,7 +78,7 @@ class TestDomainCheckService:
         result = service.check_single_domain("example.com", use_enhanced_format=False)
 
         # ASSERT: Should use legacy format and convert to DomainInfo
-        mock_check_detailed.assert_called_once_with("example.com", service.settings)
+        mock_check_detailed.assert_called_once_with("example.com", service.settings, debug=False)
         assert result.domain_name == "example.com"
         assert result.is_available is True
         assert result.problematic_statuses == ["pendingDelete"]

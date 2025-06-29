@@ -41,7 +41,7 @@ class DomainCheckService:
         self.settings = settings or Settings()  # type: ignore[call-arg]
 
     def check_single_domain(
-        self, domain: str, use_enhanced_format: bool = True
+        self, domain: str, use_enhanced_format: bool = True, debug: bool = False
     ) -> DomainInfo:
         """
         Check a single domain and return detailed information.
@@ -49,16 +49,17 @@ class DomainCheckService:
         Args:
             domain: Domain name to check
             use_enhanced_format: Whether to use enhanced domain info format
+            debug: Enable debug output including raw API responses
 
         Returns:
             DomainInfo object with check results
         """
         if use_enhanced_format:
-            return get_enhanced_domain_info(domain, self.settings)
+            return get_enhanced_domain_info(domain, self.settings, debug=debug)
         else:
             # Legacy format - convert to DomainInfo
             is_available, problematic_statuses = check_domain_status_detailed(
-                domain, self.settings
+                domain, self.settings, debug=debug
             )
             return DomainInfo(
                 domain_name=domain,
@@ -68,7 +69,7 @@ class DomainCheckService:
             )
 
     def check_multiple_domains(
-        self, domains: list[str] | None = None, use_enhanced_format: bool = True
+        self, domains: list[str] | None = None, use_enhanced_format: bool = True, debug: bool = False
     ) -> DomainCheckResult:
         """
         Check multiple domains for availability.
@@ -76,6 +77,7 @@ class DomainCheckService:
         Args:
             domains: List of domains to check. If None, loads from domains.txt
             use_enhanced_format: Whether to use enhanced domain info format
+            debug: Enable debug output including raw API responses
 
         Returns:
             DomainCheckResult with all check results
@@ -89,7 +91,7 @@ class DomainCheckService:
 
         for domain in domains:
             try:
-                domain_info = self.check_single_domain(domain, use_enhanced_format)
+                domain_info = self.check_single_domain(domain, use_enhanced_format, debug=debug)
                 domain_infos.append(domain_info)
 
                 if domain_info.has_error:

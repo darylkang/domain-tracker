@@ -72,7 +72,7 @@ class TestCLIDomainsCommand:
         assert result.exit_code == 0
         mock_service_class.assert_called_once_with(mock_settings)
         mock_service.check_multiple_domains.assert_called_once_with(
-            use_enhanced_format=True
+            use_enhanced_format=True, debug=False
         )
         mock_service.send_slack_notification.assert_called_once()
 
@@ -390,7 +390,7 @@ class TestCLISingleDomainCheck:
         assert "example.com" in result.stdout
         assert "Available" in result.stdout
         mock_service.check_single_domain.assert_called_once_with(
-            "example.com", use_enhanced_format=True
+            "example.com", use_enhanced_format=True, debug=False
         )
         mock_service.send_slack_notification.assert_called_once()
 

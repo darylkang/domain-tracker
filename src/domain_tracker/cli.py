@@ -77,8 +77,16 @@ def check_single_domain_command(
             help="Use legacy simple Slack message format instead of enhanced format",
         ),
     ] = False,
+    debug: Annotated[
+        bool,
+        typer.Option("--debug", help="Enable debug output including raw API responses"),
+    ] = False,
 ) -> None:
     """Check availability of a single domain and send Slack alert."""
+    # Configure logging if debug mode is enabled
+    if debug:
+        logging.basicConfig(level=logging.DEBUG)
+
     settings = _load_settings()
     service = DomainCheckService(settings)
 
@@ -87,7 +95,7 @@ def check_single_domain_command(
     try:
         if not legacy_slack:
             # Use enhanced domain info for rich Slack messages
-            domain_info = service.check_single_domain(domain, use_enhanced_format=True)
+            domain_info = service.check_single_domain(domain, use_enhanced_format=True, debug=debug)
 
             # Display CLI-friendly status
             status_display = get_domain_status_display(domain_info)
@@ -104,7 +112,7 @@ def check_single_domain_command(
                 _send_slack_alert_safely(service, error_message)
         else:
             # Use legacy simple format
-            domain_info = service.check_single_domain(domain, use_enhanced_format=False)
+            domain_info = service.check_single_domain(domain, use_enhanced_format=False, debug=debug)
             message = get_legacy_domain_message(
                 domain, domain_info.is_available, domain_info.problematic_statuses
             )
@@ -134,13 +142,14 @@ def check_domains(
     ] = False,
     debug: Annotated[
         bool,
-        typer.Option("--debug", help="Enable debug-level logging"),
+        typer.Option("--debug", help="Enable debug-level logging and raw API response output"),
     ] = False,
 ) -> None:
     """Check domain availability and send Slack alerts for available domains."""
     # Configure logging if debug mode is enabled
     if debug:
         logging.basicConfig(level=logging.DEBUG)
+        print("🔧 Debug mode enabled - will show raw API responses")
 
     settings = _load_settings()
     service = DomainCheckService(settings)
@@ -151,7 +160,7 @@ def check_domains(
 
         if not legacy_slack:
             # Use enhanced format with service layer
-            result = service.check_multiple_domains(use_enhanced_format=True)
+            result = service.check_multiple_domains(use_enhanced_format=True, debug=debug)
 
             if result.total_domains == 0:
                 print("⚠️  No domains found to check.")
@@ -174,7 +183,7 @@ def check_domains(
 
         else:
             # Use legacy format
-            result = service.check_multiple_domains(use_enhanced_format=False)
+            result = service.check_multiple_domains(use_enhanced_format=False, debug=debug)
 
             if result.total_domains == 0:
                 print("⚠️  No domains found to check.")
