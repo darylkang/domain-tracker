@@ -15,6 +15,7 @@ from requests.exceptions import ConnectionError, Timeout
 
 from domain_tracker.settings import Settings
 from domain_tracker.slack_notifier import (
+    format_domain_error_alert,
     format_enhanced_slack_message,
     send_slack_alert,
 )
@@ -54,7 +55,7 @@ class TestSlackNotifier:
             # ASSERT: Should use webhook URL from settings
             mock_post.assert_called_once()
             call_args = mock_post.call_args
-            assert call_args[0][0] == "https://hooks.slack.com/test"
+            assert str(call_args[0][0]) == "https://hooks.slack.com/test"
 
     def test_send_slack_alert_uses_correct_json_payload(self) -> None:
         """Test that correct JSON payload is sent to Slack."""
@@ -257,7 +258,9 @@ class TestEnhancedSlackMessages:
         message = format_enhanced_slack_message([domain_info], check_time)
 
         # ASSERT: Should include timestamp, domain details, and priority notification
-        assert "<!channel>" in message  # Priority notification for available domain
+        assert (
+            "<@channel>" in message
+        )  # Priority notification for available domain (new format)
         assert "9:30 AM EST • Jan 15, 2024" in message  # New York time format
         assert "✅ **example.com**" in message  # Available with markdown formatting
         assert "Status: Available" in message
@@ -360,7 +363,7 @@ class TestEnhancedSlackMessages:
         message = format_enhanced_slack_message(domain_infos, check_time)
 
         # ASSERT: Should include both domains with summary
-        assert "<!channel>" in message  # Priority for available domain
+        assert "<@channel>" in message  # Priority for available domain (new format)
         assert "Domain Check Summary" in message
         assert "✅ **available.com**" in message  # Available with markdown formatting
         assert "❌ **taken.com**" in message  # Unavailable with markdown formatting
@@ -369,7 +372,8 @@ class TestEnhancedSlackMessages:
         )  # New York date format (UTC midnight becomes previous day evening in NY)
         assert "Registrant: John Doe" in message
         assert "Registrar: GoDaddy Inc." in message
-        assert "📊 **Summary:** 1 available • 1 unavailable • 0 errors" in message
+        assert "📊 **Summary:**" in message  # New format has summary on separate lines
+        assert "• 1 available • 1 unavailable • 0 errors" in message
 
     def test_format_enhanced_slack_message_with_api_errors(self) -> None:
         """Test formatting message when API errors occur."""
@@ -392,8 +396,8 @@ class TestEnhancedSlackMessages:
         # ACT: Format enhanced message
         message = format_enhanced_slack_message([error_domain], check_time)
 
-        # ASSERT: Should include error notification with priority alert
-        assert "<!channel>" in message  # Priority notification for system error
+        # ASSERT: Should include error notification (no priority alert in new format for errors)
+        # Note: New format doesn't include channel notification for errors, only for available domains
         assert (
             "🚨 **error-domain.com**" in message
         )  # Error icon with markdown formatting
@@ -469,9 +473,7 @@ class TestImprovedSlackMessages:
             problematic_statuses=[],
         )
         # Use a specific UTC time that would be different in ET
-        utc_check_time = datetime(
-            2024, 6, 15, 20, 30, 0, tzinfo=UTC
-        )  # 8:30 PM UTC
+        utc_check_time = datetime(2024, 6, 15, 20, 30, 0, tzinfo=UTC)  # 8:30 PM UTC
 
         # ACT: Format the enhanced message
         result = format_enhanced_slack_message([domain_info], utc_check_time)
@@ -570,3 +572,267 @@ class TestImprovedSlackMessages:
         # Should have clean section separation
         lines = result.split("\n")
         assert any(line.strip() == "" for line in lines)  # Has blank lines for spacing
+
+
+class TestRedesignedSlackMessages:
+    """Test the redesigned Slack message format with new structure and formatting."""
+
+    def test_redesigned_format_header_structure(self) -> None:
+        """Test that redesigned format has correct header structure."""
+        # ARRANGE: Create domain info
+        domain_info = DomainInfo(
+            domain_name="example.com",
+            is_available=True,
+            problematic_statuses=[],
+        )
+        check_time = datetime(2024, 6, 29, 4, 56, 0, tzinfo=UTC)  # 12:56 AM EDT
+
+        # ACT: Format the redesigned message
+        result = format_enhanced_slack_message([domain_info], check_time)
+
+        # ASSERT: Should have correct header structure
+        assert "🔍 **Domain Check Summary**" in result
+        assert "🗓️ 12:56 AM EDT • Jun 29, 2024" in result
+        assert "👤 Triggered by: Scheduled hourly check" in result
+
+    def test_redesigned_format_section_breaks(self) -> None:
+        """Test that redesigned format includes proper section breaks."""
+        # ARRANGE: Create multiple domains
+        domain1 = DomainInfo(
+            domain_name="example.com",
+            is_available=True,
+            problematic_statuses=[],
+        )
+        domain2 = DomainInfo(
+            domain_name="test.com",
+            is_available=False,
+            problematic_statuses=[],
+        )
+        check_time = datetime(2024, 6, 29, 4, 56, 0, tzinfo=UTC)
+
+        # ACT: Format the redesigned message
+        result = format_enhanced_slack_message([domain1, domain2], check_time)
+
+        # ASSERT: Should include section breaks
+        section_break = "━━━━━━━━━━━━━━━━━━━━"
+        assert section_break in result
+        # Should have multiple section breaks for multiple domains
+        assert result.count(section_break) >= 2
+
+    def test_redesigned_format_available_domain_with_channel_ping(self) -> None:
+        """Test that available domains include <@channel> ping under the domain."""
+        # ARRANGE: Create available domain
+        domain_info = DomainInfo(
+            domain_name="spectre.cx",
+            is_available=True,
+            problematic_statuses=[],
+        )
+        check_time = datetime(2024, 6, 29, 4, 56, 0, tzinfo=UTC)
+
+        # ACT: Format the redesigned message
+        result = format_enhanced_slack_message([domain_info], check_time)
+
+        # ASSERT: Should include domain with status and channel ping
+        assert "✅ **spectre.cx**" in result
+        assert "• Status: Available" in result
+        assert "• 🔔 <@channel> — Action needed!" in result
+
+    def test_redesigned_format_unavailable_domain_structure(self) -> None:
+        """Test that unavailable domains have correct structure without channel ping."""
+        # ARRANGE: Create unavailable domain with metadata
+        domain_info = DomainInfo(
+            domain_name="example.com",
+            is_available=False,
+            problematic_statuses=[],
+            expiration_date=datetime(2025, 12, 15, 0, 0, 0, tzinfo=UTC),
+            registrar_name="GoDaddy",
+        )
+        check_time = datetime(2024, 6, 29, 4, 56, 0, tzinfo=UTC)
+
+        # ACT: Format the redesigned message
+        result = format_enhanced_slack_message([domain_info], check_time)
+
+        # ASSERT: Should have correct structure without channel ping for available domains only
+        assert "❌ **example.com**" in result
+        assert "• Status: Unavailable" in result
+        assert "• Registrar: GoDaddy" in result
+        assert (
+            "• Expires: Dec 14, 2025" in result
+        )  # UTC midnight becomes previous day in NY time
+        # Should not have action needed for unavailable domains
+        assert "Action needed!" not in result
+
+    def test_redesigned_format_summary_structure(self) -> None:
+        """Test that summary has correct structure with bullet separators."""
+        # ARRANGE: Create mixed domain statuses
+        available_domain = DomainInfo(
+            domain_name="available.com",
+            is_available=True,
+            problematic_statuses=[],
+        )
+        unavailable_domain = DomainInfo(
+            domain_name="taken.com",
+            is_available=False,
+            problematic_statuses=[],
+        )
+        check_time = datetime(2024, 6, 29, 4, 56, 0, tzinfo=UTC)
+
+        # ACT: Format the redesigned message
+        result = format_enhanced_slack_message(
+            [available_domain, unavailable_domain], check_time
+        )
+
+        # ASSERT: Should have correct summary structure
+        assert "📊 **Summary:**" in result
+        assert "• 1 available • 1 unavailable • 0 errors" in result
+
+    def test_redesigned_format_error_domain_message(self) -> None:
+        """Test that error domains are handled in the main message format."""
+        # ARRANGE: Create domain with error
+        domain_info = DomainInfo(
+            domain_name="error.com",
+            is_available=False,
+            problematic_statuses=[],
+            has_error=True,
+            error_message="API request timeout",
+        )
+        check_time = datetime(2024, 6, 29, 4, 56, 0, tzinfo=UTC)
+
+        # ACT: Format the redesigned message
+        result = format_enhanced_slack_message([domain_info], check_time)
+
+        # ASSERT: Should include error in main format (separate error alerts tested separately)
+        assert "🚨 **error.com**" in result
+        assert "• Status: Error (API request timeout)" in result
+
+    def test_redesigned_format_bullet_separators(self) -> None:
+        """Test that bullet separators (•) are used consistently."""
+        # ARRANGE: Create domain with various metadata
+        domain_info = DomainInfo(
+            domain_name="test.com",
+            is_available=False,
+            problematic_statuses=[],
+            expiration_date=datetime(2025, 12, 15, 0, 0, 0, tzinfo=UTC),
+            registrant_name="John Doe",
+            registrar_name="GoDaddy",
+        )
+        check_time = datetime(2024, 6, 29, 4, 56, 0, tzinfo=UTC)
+
+        # ACT: Format the redesigned message
+        result = format_enhanced_slack_message([domain_info], check_time)
+
+        # ASSERT: Should use bullet separators consistently
+        assert "• Status: Unavailable" in result
+        assert "• Registrar: GoDaddy" in result
+        assert (
+            "• Expires: Dec 14, 2025" in result
+        )  # UTC midnight becomes previous day in NY time
+        assert "• Registrant: John Doe" in result
+
+    def test_redesigned_format_only_includes_present_metadata(self) -> None:
+        """Test that only present metadata fields are included."""
+        # ARRANGE: Create domain with minimal metadata
+        domain_info = DomainInfo(
+            domain_name="minimal.com",
+            is_available=False,
+            problematic_statuses=[],
+            expiration_date=datetime(2025, 12, 15, 0, 0, 0, tzinfo=UTC),
+            # No registrant, registrar, creation date, etc.
+        )
+        check_time = datetime(2024, 6, 29, 4, 56, 0, tzinfo=UTC)
+
+        # ACT: Format the redesigned message
+        result = format_enhanced_slack_message([domain_info], check_time)
+
+        # ASSERT: Should only include present fields
+        assert "• Status: Unavailable" in result
+        assert (
+            "• Expires: Dec 14, 2025" in result
+        )  # UTC midnight becomes previous day in NY time
+        # Should NOT include missing fields
+        assert "• Registrant:" not in result
+        assert "• Registrar:" not in result
+        assert "• Created:" not in result
+
+
+class TestSlackErrorAlerts:
+    """Test separate error alert functionality for failed domain lookups."""
+
+    def test_format_domain_error_alert_structure(self) -> None:
+        """Test that error alert has correct structure and content."""
+        # ARRANGE: Define error details
+        domain_name = "failed-lookup.com"
+        error_message = "Connection timeout"
+
+        # ACT: Format the error alert
+        result = format_domain_error_alert(domain_name, error_message)
+
+        # ASSERT: Should have correct structure
+        assert "🚨 **Domain Check Failed for: failed-lookup.com**" in result
+        assert "❗ Error: Connection timeout" in result
+        assert "🔁 Will retry at next scheduled interval" in result
+        assert "🔔 <@channel> — Manual check may be needed" in result
+
+    def test_format_domain_error_alert_with_various_errors(self) -> None:
+        """Test error alert formatting with different error types."""
+        # ARRANGE: Test various error scenarios
+        test_cases = [
+            ("timeout.com", "API request timeout"),
+            ("invalid.com", "Invalid domain format"),
+            ("network.com", "Network unreachable"),
+            ("auth.com", "Authentication failed"),
+        ]
+
+        for domain, error in test_cases:
+            # ACT: Format error alert
+            result = format_domain_error_alert(domain, error)
+
+            # ASSERT: Should include domain and error
+            assert f"Domain Check Failed for: {domain}" in result
+            assert f"Error: {error}" in result
+            assert "<@channel>" in result
+
+    def test_format_domain_error_alert_channel_notification(self) -> None:
+        """Test that error alerts include channel notification for urgent attention."""
+        # ARRANGE: Create error alert
+        domain_name = "urgent.com"
+        error_message = "Critical API failure"
+
+        # ACT: Format error alert
+        result = format_domain_error_alert(domain_name, error_message)
+
+        # ASSERT: Should include channel ping for urgent attention
+        assert "🔔 <@channel> — Manual check may be needed" in result
+
+    def test_format_domain_error_alert_retry_message(self) -> None:
+        """Test that error alerts include retry information."""
+        # ARRANGE: Create error alert
+        domain_name = "retry.com"
+        error_message = "Temporary failure"
+
+        # ACT: Format error alert
+        result = format_domain_error_alert(domain_name, error_message)
+
+        # ASSERT: Should include retry information
+        assert "🔁 Will retry at next scheduled interval" in result
+
+    def test_error_domains_still_in_main_message(self) -> None:
+        """Test that error domains are still included in main message format."""
+        # ARRANGE: Create domain with error
+        domain_info = DomainInfo(
+            domain_name="failed-lookup.com",
+            is_available=False,
+            problematic_statuses=[],
+            has_error=True,
+            error_message="Connection timeout",
+        )
+        check_time = datetime(2024, 6, 29, 4, 56, 0, tzinfo=UTC)
+
+        # ACT: Format the main message
+        result = format_enhanced_slack_message([domain_info], check_time)
+
+        # ASSERT: Should include error in main message (in addition to separate alert)
+        assert "🚨 **failed-lookup.com**" in result
+        assert "• Status: Error (Connection timeout)" in result
+        assert "📊 **Summary:**" in result
+        assert "• 0 available • 0 unavailable • 1 errors" in result
