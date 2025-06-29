@@ -142,7 +142,7 @@ def check_single_domain_command(
             if not domain_info.has_error:
                 check_time = datetime.utcnow()
                 enhanced_message = format_enhanced_slack_message(
-                    [domain_info], check_time
+                    [domain_info], check_time, trigger_type="manual"
                 )
                 _send_slack_alert_safely(enhanced_message, settings)
             else:
@@ -272,7 +272,7 @@ def check_domains(
             if should_notify:
                 check_time = datetime.utcnow()
                 enhanced_message = format_enhanced_slack_message(
-                    domain_infos, check_time
+                    domain_infos, check_time, trigger_type="manual"
                 )
                 _send_slack_alert_safely(enhanced_message, settings)
 

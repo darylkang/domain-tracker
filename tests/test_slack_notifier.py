@@ -259,7 +259,7 @@ class TestEnhancedSlackMessages:
 
         # ASSERT: Should include timestamp, domain details, and priority notification
         assert (
-            "<@channel>" in message
+            "<!channel>" in message
         )  # Priority notification for available domain (new format)
         assert "9:30 AM EST • Jan 15, 2024" in message  # New York time format
         assert "✅ *example.com*" in message  # Available with markdown formatting
@@ -363,7 +363,7 @@ class TestEnhancedSlackMessages:
         message = format_enhanced_slack_message(domain_infos, check_time)
 
         # ASSERT: Should include both domains with summary
-        assert "<@channel>" in message  # Priority for available domain (new format)
+        assert "<!channel>" in message  # Priority for available domain (new format)
         assert "Domain Check Summary" in message
         assert "✅ *available.com*" in message  # Available with markdown formatting
         assert "❌ *taken.com*" in message  # Unavailable with markdown formatting
@@ -635,7 +635,7 @@ class TestRedesignedSlackMessages:
         # ASSERT: Should include domain with status and channel ping
         assert "✅ *spectre.cx*" in result
         assert "• Status: Available" in result
-        assert "• 🔔 <@channel> — Action needed!" in result
+        assert "• 🔔 <!channel> — Action needed!" in result
 
     def test_redesigned_format_unavailable_domain_structure(self) -> None:
         """Test that unavailable domains have correct structure without channel ping."""
@@ -754,6 +754,57 @@ class TestRedesignedSlackMessages:
         assert "• Registrar:" not in result
         assert "• Created:" not in result
 
+    def test_enhanced_message_trigger_type_manual(self) -> None:
+        """Test that manual trigger type shows correct trigger message."""
+        # ARRANGE: Create domain with any status
+        domain_info = DomainInfo(
+            domain_name="test.com",
+            is_available=False,
+            problematic_statuses=[],
+        )
+        check_time = datetime(2024, 6, 29, 4, 56, 0, tzinfo=UTC)
+
+        # ACT: Format message with manual trigger type
+        result = format_enhanced_slack_message([domain_info], check_time, trigger_type="manual")
+
+        # ASSERT: Should show manual trigger message
+        assert "👤 Triggered by: Manual CLI check" in result
+        assert "Scheduled hourly check" not in result
+
+    def test_enhanced_message_trigger_type_scheduled(self) -> None:
+        """Test that scheduled trigger type shows correct trigger message."""
+        # ARRANGE: Create domain with any status
+        domain_info = DomainInfo(
+            domain_name="test.com",
+            is_available=False,
+            problematic_statuses=[],
+        )
+        check_time = datetime(2024, 6, 29, 4, 56, 0, tzinfo=UTC)
+
+        # ACT: Format message with scheduled trigger type
+        result = format_enhanced_slack_message([domain_info], check_time, trigger_type="scheduled")
+
+        # ASSERT: Should show scheduled trigger message
+        assert "👤 Triggered by: Scheduled hourly check" in result
+        assert "Manual CLI check" not in result
+
+    def test_enhanced_message_trigger_type_default(self) -> None:
+        """Test that default (no parameter) shows scheduled trigger message."""
+        # ARRANGE: Create domain with any status
+        domain_info = DomainInfo(
+            domain_name="test.com",
+            is_available=False,
+            problematic_statuses=[],
+        )
+        check_time = datetime(2024, 6, 29, 4, 56, 0, tzinfo=UTC)
+
+        # ACT: Format message without trigger_type parameter (uses default)
+        result = format_enhanced_slack_message([domain_info], check_time)
+
+        # ASSERT: Should default to scheduled trigger message
+        assert "👤 Triggered by: Scheduled hourly check" in result
+        assert "Manual CLI check" not in result
+
 
 class TestSlackErrorAlerts:
     """Test separate error alert functionality for failed domain lookups."""
@@ -771,7 +822,7 @@ class TestSlackErrorAlerts:
         assert "🚨 *Domain Check Failed for: failed-lookup.com*" in result
         assert "❗ Error: Connection timeout" in result
         assert "🔁 Will retry at next scheduled interval" in result
-        assert "🔔 <@channel> — Manual check may be needed" in result
+        assert "🔔 <!channel> — Manual check may be needed" in result
 
     def test_format_domain_error_alert_with_various_errors(self) -> None:
         """Test error alert formatting with different error types."""
@@ -790,7 +841,7 @@ class TestSlackErrorAlerts:
             # ASSERT: Should include domain and error
             assert f"Domain Check Failed for: {domain}" in result
             assert f"Error: {error}" in result
-            assert "<@channel>" in result
+            assert "<!channel>" in result
 
     def test_format_domain_error_alert_channel_notification(self) -> None:
         """Test that error alerts include channel notification for urgent attention."""
@@ -802,7 +853,7 @@ class TestSlackErrorAlerts:
         result = format_domain_error_alert(domain_name, error_message)
 
         # ASSERT: Should include channel ping for urgent attention
-        assert "🔔 <@channel> — Manual check may be needed" in result
+        assert "🔔 <!channel> — Manual check may be needed" in result
 
     def test_format_domain_error_alert_retry_message(self) -> None:
         """Test that error alerts include retry information."""

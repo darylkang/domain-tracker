@@ -148,7 +148,7 @@ def _format_domain_status(domain_info: DomainInfo) -> str:
 
 
 def format_enhanced_slack_message(
-    domain_infos: list[DomainInfo], check_time: datetime
+    domain_infos: list[DomainInfo], check_time: datetime, trigger_type: str = "scheduled"
 ) -> str:
     """
     Format domain check results into a rich, redesigned Slack message.
@@ -156,15 +156,22 @@ def format_enhanced_slack_message(
     Args:
         domain_infos: List of domain information objects
         check_time: When the check was performed
+        trigger_type: Either "manual" or "scheduled" to indicate how the check was triggered
 
     Returns:
         Formatted Slack message with rich formatting and section breaks
     """
+    # Determine trigger message based on type
+    if trigger_type == "manual":
+        trigger_message = "👤 Triggered by: Manual CLI check"
+    else:
+        trigger_message = "👤 Triggered by: Scheduled hourly check"
+    
     # Header section
     header_lines = [
         "🔍 *Domain Check Summary*",
         f"🗓️ {_format_ny_datetime(check_time)}",
-        "👤 Triggered by: Scheduled hourly check",
+        trigger_message,
         "",
         "━━━━━━━━━━━━━━━━━━━━",
         "",
@@ -204,7 +211,7 @@ def format_enhanced_slack_message(
 
         # Add channel notification for available domains
         if domain_info.is_available:
-            domain_lines.append("• 🔔 <@channel> — Action needed!")
+            domain_lines.append("• 🔔 <!channel> — Action needed!")
 
         # Section break after each domain
         domain_lines.extend(["", "━━━━━━━━━━━━━━━━━━━━", ""])
@@ -242,6 +249,6 @@ def format_domain_error_alert(domain_name: str, error_message: str) -> str:
             f"🚨 *Domain Check Failed for: {domain_name}*",
             f"❗ Error: {error_message}",
             "🔁 Will retry at next scheduled interval",
-            "🔔 <@channel> — Manual check may be needed",
+            "🔔 <!channel> — Manual check may be needed",
         ]
     )
