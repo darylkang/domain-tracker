@@ -359,4 +359,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Happy Domain Hunting! 🎯**
 
-Made with ❤️ for domain enthusiasts and developers who want to automate their domain monitoring workflow.
+Made with ❤️ for domain enthusiasts and developers who want to automate their domain monitoring workflow. Test.
